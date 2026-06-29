@@ -17,7 +17,10 @@ Neon PostgreSQL (Job Registration)
 Celery + Redis
    │
    ▼
-Extraction Worker
+Background Worker
+   │
+   ▼
+Downloader
    │
    ▼
 Docling
@@ -49,15 +52,26 @@ BRIXTAresearchPipeline/
 │   └── main.py
 │
 ├── shared/                 # Shared Python Components
+│   ├── config.py           # Environment Configuration
+│   ├── constants.py        # Shared Constants
 │   ├── database.py         # Neon PostgreSQL Connection
-│   ├── schemas.py          # Pydantic Models
-│   └── config.py
+│   ├── enums.py            # Pipeline Enums
+│   ├── exceptions.py       # Shared Exceptions
+│   └── schemas.py          # Pydantic Models
 │
 ├── workers/                # Celery Background Workers
+│   ├── __init__.py
 │   ├── celery_app.py
+│   ├── base.py
 │   ├── tasks/
-│   ├── services/
-│   └── utils/
+│   │   ├── __init__.py
+│   │   └── ingestion.py
+│   ├── downloader/
+│   ├── parser/
+│   ├── cleaner/
+│   ├── chunker/
+│   ├── embeddings/
+│   └── storage/
 │
 ├── .env
 ├── requirements.txt
@@ -72,8 +86,8 @@ BRIXTAresearchPipeline/
 | Validation        | Pydantic             |
 | Database          | Neon PostgreSQL      |
 | Schema Management | Drizzle ORM          |
-| Queue             | Redis                |
-| Worker Engine     | Celery               |
+| Queue Broker      | Redis                |
+| Task Queue        | Celery               |
 | Parsing           | Docling              |
 | Embeddings        | OpenAI / HuggingFace |
 | Vector Storage    | pgvector             |
@@ -84,14 +98,20 @@ BRIXTAresearchPipeline/
 * ✅ FastAPI Gateway
 * ✅ Neon PostgreSQL
 * ✅ Drizzle ORM Schema
-* ✅ pgvector
+* ✅ pgvector Extension
 * ✅ Pydantic Models
+* ✅ Shared Configuration Layer
+* ✅ Shared Enums & Constants
+* ✅ Shared Exception Handling
 * ✅ PostgreSQL Integration
 * ✅ Redis Infrastructure
+* ✅ Celery Worker Engine
+* ✅ Celery Task Registration
+* ✅ Asynchronous Job Dispatch
+* ✅ End-to-End Queue Execution
 
 ## Roadmap
 
-* [ ] Celery Worker
 * [ ] Document Downloader
 * [ ] Docling Parser
 * [ ] Markdown Cleaner
@@ -100,6 +120,10 @@ BRIXTAresearchPipeline/
 * [ ] Vector Storage
 * [ ] Semantic Search
 * [ ] Research Retrieval API
+* [ ] Connection Pooling (psycopg_pool)
+* [ ] Worker Monitoring & Metrics
+* [ ] Docker Compose Deployment
+* [ ] Kubernetes Deployment
 
 ```
 ```
