@@ -1,0 +1,14 @@
+from workers.celery_app import celery
+from workers.parser.service import parse_document
+
+
+@celery.task
+def parse_document_task(job_id: str):
+
+    print(f"\n📄 Parsing Job: {job_id}")
+
+    markdown_path = parse_document(job_id)
+
+    print(f"✅ Markdown: {markdown_path}")
+
+    return str(markdown_path)
