@@ -14,22 +14,28 @@ FastAPI Gateway
 Neon PostgreSQL (Job Registration)
    │
    ▼
-Celery + Redis
+Redis Message Broker
    │
    ▼
-Background Worker
+Celery Task Queue
    │
    ▼
-Downloader
+Ingestion Worker
    │
    ▼
-Docling
+Document Downloader
    │
    ▼
-Markdown
+storage/raw/
    │
    ▼
-Chunking Engine
+Docling Parser
+   │
+   ▼
+storage/markdown/
+   │
+   ▼
+Hybrid Chunking Engine
    │
    ▼
 Embedding Engine
@@ -54,8 +60,8 @@ BRIXTAresearchPipeline/
 ├── shared/                 # Shared Python Components
 │   ├── config.py           # Environment Configuration
 │   ├── constants.py        # Shared Constants
-│   ├── database.py         # Neon PostgreSQL Connection
-│   ├── enums.py            # Pipeline Enums
+│   ├── database.py         # PostgreSQL Connection Layer
+│   ├── enums.py            # Pipeline Status Enums
 │   ├── exceptions.py       # Shared Exceptions
 │   └── schemas.py          # Pydantic Models
 │
@@ -65,13 +71,22 @@ BRIXTAresearchPipeline/
 │   ├── base.py
 │   ├── tasks/
 │   │   ├── __init__.py
-│   │   └── ingestion.py
+│   │   ├── ingestion.py
+│   │   └── parser.py
 │   ├── downloader/
+│   │   └── service.py
 │   ├── parser/
+│   │   └── service.py
+│   ├── utils/
+│   │   └── job_status.py
 │   ├── cleaner/
 │   ├── chunker/
 │   ├── embeddings/
 │   └── storage/
+│
+├── storage/
+│   ├── raw/
+│   └── markdown/
 │
 ├── .env
 ├── requirements.txt
@@ -88,7 +103,8 @@ BRIXTAresearchPipeline/
 | Schema Management | Drizzle ORM          |
 | Queue Broker      | Redis                |
 | Task Queue        | Celery               |
-| Parsing           | Docling              |
+| Document Parsing  | Docling              |
+| HTTP Client       | Requests             |
 | Embeddings        | OpenAI / HuggingFace |
 | Vector Storage    | pgvector             |
 | Container Runtime | Docker + Colima      |
@@ -107,23 +123,28 @@ BRIXTAresearchPipeline/
 * ✅ Redis Infrastructure
 * ✅ Celery Worker Engine
 * ✅ Celery Task Registration
+* ✅ Explicit Task Imports
 * ✅ Asynchronous Job Dispatch
-* ✅ End-to-End Queue Execution
+* ✅ Multi-Stage Worker Chaining
+* ✅ Pipeline Status Tracking
+* ✅ Document Downloader
+* ✅ Local Raw Document Storage
+* ✅ Docling HTML/PDF Parsing
+* ✅ Markdown Export
+* ✅ Local Markdown Storage
+* ✅ End-to-End Asynchronous Pipeline
 
 ## Roadmap
 
-* [ ] Document Downloader
-* [ ] Docling Parser
 * [ ] Markdown Cleaner
 * [ ] Hybrid Chunking Engine
+* [ ] Chunk Storage Layer
 * [ ] Embedding Generation
-* [ ] Vector Storage
+* [ ] Vector Storage (pgvector)
 * [ ] Semantic Search
 * [ ] Research Retrieval API
 * [ ] Connection Pooling (psycopg_pool)
-* [ ] Worker Monitoring & Metrics
+* [ ] Worker Monitoring & Metrics (Prometheus/Grafana)
 * [ ] Docker Compose Deployment
-* [ ] Kubernetes Deployment
-
-```
-```
+* [ ] Kubernetes Deployment (AWS EKS)
+* [ ] Terraform Infrastructure
