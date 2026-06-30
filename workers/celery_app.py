@@ -18,5 +18,6 @@ celery.conf.update(
     imports=(
         "workers.tasks.ingestion",
         "workers.tasks.parser",
+        "workers.tasks.chunker",
     ),
 )

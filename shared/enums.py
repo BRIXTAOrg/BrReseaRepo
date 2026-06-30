@@ -14,6 +14,8 @@ class JobStatus(str, Enum):
     CLEANING = "cleaning"
 
     CHUNKING = "chunking"
+    
+    CHUNKED = "chunked"
 
     EMBEDDING = "embedding"
 

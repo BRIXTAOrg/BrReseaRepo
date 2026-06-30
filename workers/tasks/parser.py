@@ -11,4 +11,9 @@ def parse_document_task(job_id: str):
 
     print(f"✅ Markdown: {markdown_path}")
 
+    celery.send_task(
+        "workers.tasks.chunker.chunk_document_task",
+        args=[job_id],
+    )
+
     return str(markdown_path)
