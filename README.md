@@ -32,16 +32,21 @@ storage/raw/
 Docling Parser
    │
    ▼
-storage/markdown/
-   │
-   ▼
-Hybrid Chunking Engine
-   │
-   ▼
-Embedding Engine
-   │
-   ▼
-Neon PostgreSQL (pgvector)
+DoclingDocument
+   ├──────────────► storage/docling/
+   └──────────────► storage/markdown/
+                          │
+                          ▼
+                 Hybrid Chunking Engine
+                          │
+                          ▼
+                   storage/chunks/
+                          │
+                          ▼
+                  Embedding Engine
+                          │
+                          ▼
+            Neon PostgreSQL (pgvector)
 ```
 
 ## Project Structure
@@ -72,21 +77,25 @@ BRIXTAresearchPipeline/
 │   ├── tasks/
 │   │   ├── __init__.py
 │   │   ├── ingestion.py
-│   │   └── parser.py
+│   │   ├── parser.py
+│   │   └── chunker.py
 │   ├── downloader/
 │   │   └── service.py
 │   ├── parser/
 │   │   └── service.py
-│   ├── utils/
-│   │   └── job_status.py
-│   ├── cleaner/
 │   ├── chunker/
+│   │   └── service.py
 │   ├── embeddings/
-│   └── storage/
+│   ├── cleaner/
+│   ├── storage/
+│   └── utils/
+│       └── job_status.py
 │
 ├── storage/
 │   ├── raw/
-│   └── markdown/
+│   ├── docling/
+│   ├── markdown/
+│   └── chunks/
 │
 ├── .env
 ├── requirements.txt
@@ -95,19 +104,20 @@ BRIXTAresearchPipeline/
 
 ## Technology Stack
 
-| Layer             | Technology           |
-| ----------------- | -------------------- |
-| API               | FastAPI              |
-| Validation        | Pydantic             |
-| Database          | Neon PostgreSQL      |
-| Schema Management | Drizzle ORM          |
-| Queue Broker      | Redis                |
-| Task Queue        | Celery               |
-| Document Parsing  | Docling              |
-| HTTP Client       | Requests             |
-| Embeddings        | OpenAI / HuggingFace |
-| Vector Storage    | pgvector             |
-| Container Runtime | Docker + Colima      |
+| Layer             | Technology            |
+| ----------------- | --------------------- |
+| API               | FastAPI               |
+| Validation        | Pydantic              |
+| Database          | Neon PostgreSQL       |
+| Schema Management | Drizzle ORM           |
+| Queue Broker      | Redis                 |
+| Task Queue        | Celery                |
+| Document Parsing  | Docling               |
+| Document Chunking | Docling HybridChunker |
+| HTTP Client       | Requests              |
+| Embeddings        | OpenAI / HuggingFace  |
+| Vector Storage    | pgvector              |
+| Container Runtime | Docker + Colima       |
 
 ## Current Progress
 
@@ -130,15 +140,84 @@ BRIXTAresearchPipeline/
 * ✅ Document Downloader
 * ✅ Local Raw Document Storage
 * ✅ Docling HTML/PDF Parsing
+* ✅ Canonical DoclingDocument Serialization
+* ✅ Local DoclingDocument Storage
 * ✅ Markdown Export
 * ✅ Local Markdown Storage
+* ✅ Hybrid Semantic Chunking
+* ✅ Local Chunk Storage
 * ✅ End-to-End Asynchronous Pipeline
+
+## Development Commands
+
+### Start Colima
+
+```bash
+colima start
+```
+
+### Start Redis Container (first time)
+
+```bash
+docker run -d \
+  --name brixta-redis \
+  -p 6379:6379 \
+  redis:7
+```
+
+### Start Existing Redis Container
+
+```bash
+docker start brixta-redis
+```
+
+### Verify Running Containers
+
+```bash
+docker ps
+```
+
+### Start FastAPI Gateway
+
+```bash
+uvicorn gateway.main:app --reload
+```
+
+### Start Celery Worker
+
+```bash
+celery -A workers.celery_app.celery worker --loglevel=info
+```
+
+### Stop Redis
+
+```bash
+docker stop brixta-redis
+```
+
+### Stop Colima
+
+```bash
+colima stop
+```
+
+### Remove Stopped Docker Resources
+
+```bash
+docker system prune -f
+```
+
+### Remove Everything Unused (Images + Cache + Volumes)
+
+```bash
+docker system prune -a --volumes -f
+```
 
 ## Roadmap
 
 * [ ] Markdown Cleaner
-* [ ] Hybrid Chunking Engine
-* [ ] Chunk Storage Layer
+* [x] Hybrid Chunking Engine
+* [ ] Chunk Persistence (PostgreSQL)
 * [ ] Embedding Generation
 * [ ] Vector Storage (pgvector)
 * [ ] Semantic Search
