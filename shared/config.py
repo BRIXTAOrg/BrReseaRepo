@@ -12,15 +12,28 @@ REDIS_URL = os.getenv(
     "redis://localhost:6379/0",
 )
 
+# ---------------------------------------------------------------------
+# Embeddings
+# ---------------------------------------------------------------------
+
+EMBEDDING_PROVIDER = os.getenv(
+    "EMBEDDING_PROVIDER",
+    "nomic",
+)
+
+EMBEDDING_MODEL = os.getenv(
+    "EMBEDDING_MODEL",
+    "nomic-ai/nomic-embed-text-v1.5",
+)
+
 OPENAI_API_KEY = os.getenv(
     "OPENAI_API_KEY",
     "",
 )
 
-EMBEDDING_MODEL = os.getenv(
-    "EMBEDDING_MODEL",
-    "text-embedding-3-small",
-)
+# ---------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------
 
 LOG_LEVEL = os.getenv(
     "LOG_LEVEL",

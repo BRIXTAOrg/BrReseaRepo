@@ -11,4 +11,9 @@ def chunk_document_task(job_id: str):
 
     print(f"✅ Chunks: {chunk_file}")
 
+    celery.send_task(
+    "workers.tasks.embeddings.generate_embeddings_task",
+    args=[job_id],
+    )
+
     return str(chunk_file)

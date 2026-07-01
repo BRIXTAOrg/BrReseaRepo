@@ -1,0 +1,1 @@
+ALTER TABLE "BrResearch"."document_chunks" ALTER COLUMN "chunk_index" SET DATA TYPE integer;

@@ -19,5 +19,7 @@ celery.conf.update(
         "workers.tasks.ingestion",
         "workers.tasks.parser",
         "workers.tasks.chunker",
+        "workers.tasks.embeddings",
+        "workers.tasks.storage",
     ),
 )

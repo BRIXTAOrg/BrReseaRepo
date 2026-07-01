@@ -18,6 +18,8 @@ class JobStatus(str, Enum):
     CHUNKED = "chunked"
 
     EMBEDDING = "embedding"
+    
+    EMBEDDED = "embedded"
 
     STORING = "storing"
 
