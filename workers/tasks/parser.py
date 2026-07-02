@@ -14,6 +14,7 @@ def parse_document_task(job_id: str):
     celery.send_task(
         "workers.tasks.chunker.chunk_document_task",
         args=[job_id],
+        queue="chunker",
     )
 
     return str(markdown_path)

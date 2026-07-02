@@ -14,6 +14,7 @@ def generate_embeddings_task(job_id: str):
     celery.send_task(
         "workers.tasks.storage.persist_embeddings_task",
         args=[job_id],
+        queue="storage",
     )
 
     return str(embedding_file)

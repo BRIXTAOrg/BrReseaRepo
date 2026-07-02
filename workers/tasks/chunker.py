@@ -14,6 +14,7 @@ def chunk_document_task(job_id: str):
     celery.send_task(
     "workers.tasks.embeddings.generate_embeddings_task",
     args=[job_id],
+    queue="embeddings",
     )
 
     return str(chunk_file)

@@ -64,13 +64,14 @@ async def ingest(source_url: HttpUrl, tenant_id: str):
         )
 
     # -------------------------
-    # Dispatch async worker
+    # Dispatch downloader worker
     # -------------------------
 
     try:
         celery.send_task(
             "workers.tasks.ingestion.test_ingestion",
             args=[job_id],
+            queue="downloader",
         )
 
     except Exception as e:
