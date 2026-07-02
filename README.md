@@ -134,7 +134,9 @@ BRIXTAresearchPipeline/
 | Embeddings | Nomic Embed v1.5 |
 | Vector Database | PostgreSQL + pgvector |
 | HTTP Client | Requests |
-| Container Runtime | Docker + Colima |
+| Local Development | Docker + Colima |
+| Orchestration | Kubernetes (K3s) |
+| Secrets Management | Infisical Operator |
 ---
 
 ## Current Progress
@@ -411,45 +413,132 @@ docker system prune -a --volumes -f
 
 ---
 
+## Kubernetes Operations (K3s)
+
+The production environment is orchestrated using a lightweight **K3s Kubernetes** cluster with automated secret injection through the **Infisical Operator**.
+
+---
+
+### Start the Cluster
+
+Starts the K3s environment, applies all Kubernetes manifests from the `k8s/` directory, and synchronizes secrets using the Infisical Operator.
+
+The stuff is inside ~/brresea/
+
+```bash
+./start.sh
+```
+
+---
+
+### Check Cluster Status
+
+View the status of all running pods, deployments, and services.
+
+```bash
+kubectl get pods
+```
+
+For a more detailed overview:
+
+```bash
+kubectl get all
+```
+
+---
+
+### View Application Logs
+
+Stream live logs from the running deployments.
+
+#### FastAPI Gateway
+
+```bash
+kubectl logs deployment/gateway -f
+```
+
+#### Celery Worker (Light)
+
+```bash
+kubectl logs deployment/workers-light -f
+```
+
+#### Embedding Worker
+
+```bash
+kubectl logs deployment/worker-embeddings -f
+```
+
+---
+
+### Restart Deployments
+
+Perform a rolling restart without downtime.
+
+```bash
+kubectl rollout restart deployment gateway
+kubectl rollout restart deployment workers-light
+kubectl rollout restart deployment worker-embeddings
+```
+
+Or restart all three in one command:
+
+```bash
+kubectl rollout restart deployment \
+    gateway \
+    workers-light \
+    worker-embeddings
+```
+
+---
+
+### Stop the Cluster
+
+Delete all deployed Kubernetes resources.
+
+```bash
+kubectl delete -f k8s/
+```
+
+---
+
 ## Roadmap
 
 ### Retrieval Layer
 
-- [ ] Semantic Vector Search
-- [ ] Semantic Search API
-- [ ] Research Retrieval (RAG) API
-- [ ] Metadata Filtering
-- [ ] Hybrid Retrieval (Vector + BM25)
+* [ ] Semantic Vector Search
+* [ ] Semantic Search API
+* [ ] Research Retrieval (RAG) API
+* [ ] Metadata Filtering
+* [ ] Hybrid Retrieval (Vector + BM25)
 
 ### Pipeline Improvements
 
-- [ ] Markdown Cleaner
-- [ ] Connection Pooling (psycopg_pool)
-- [ ] Worker Monitoring (Prometheus)
-- [ ] Grafana Dashboards
+* [ ] Markdown Cleaner
+* [ ] Connection Pooling (`psycopg_pool`)
+* [ ] Worker Monitoring (Prometheus)
+* [ ] Grafana Dashboards
 
 ### User Platform
 
-- [ ] Frontend Dashboard
-- [ ] Google Drive / OneDrive Connectors
-- [ ] Multi-Tenant Workspace Management
+* [ ] Frontend Dashboard
+* [ ] Google Drive / OneDrive Connectors
+* [ ] Multi-Tenant Workspace Management
 
 ### Infrastructure
 
-- [ ] Docker Compose Deployment
-- [ ] Kubernetes Deployment (AWS EKS)
-- [ ] Terraform Infrastructure
+* [x] Local Kubernetes (K3s) Deployment
 
 ---
 
-### Completed
+## Completed
 
-- [x] FastAPI Gateway
-- [x] Redis + Celery Worker Pipeline
-- [x] Document Downloader
-- [x] Docling Parsing
-- [x] Canonical DoclingDocument Serialization
-- [x] Hybrid Semantic Chunking
-- [x] Open-Source Embedding Generation (Nomic Embed v1.5)
-- [x] Automatic Vector Persistence (pgvector)
-- [x] End-to-End AI Ingestion Pipeline
+* [x] FastAPI Gateway
+* [x] Redis + Celery Worker Pipeline
+* [x] Document Downloader
+* [x] Docling Parsing
+* [x] Canonical DoclingDocument Serialization
+* [x] Hybrid Semantic Chunking
+* [x] Open-Source Embedding Generation (Nomic Embed v1.5)
+* [x] Automatic Vector Persistence (pgvector)
+* [x] End-to-End AI Research Ingestion Pipeline

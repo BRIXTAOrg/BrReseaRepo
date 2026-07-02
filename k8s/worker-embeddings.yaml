@@ -23,6 +23,8 @@ spec:
         env:
         - name: CELERY_BROKER_URL
           value: "redis://redis-service:6379/0"
+        - name: HF_HOME
+          value: "/tmp/huggingface"
         volumeMounts:
         - name: shared-storage
           mountPath: /app/storage

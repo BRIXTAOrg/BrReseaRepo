@@ -8,8 +8,11 @@ spec:
       containers:
       - name: migration
         image: docker.io/goswamirohit/brresearepo:v1
-        command: ["npx", "drizzle-kit", "push:pg", "--config=infra/drizzle.config.ts"]
+        command: ["npx", "drizzle-kit", "push", "--config=infra/drizzle.config.ts"]
         envFrom:
         - secretRef:
             name: app-secrets
+        env:
+        - name: npm_config_cache
+          value: "/tmp/.npm"
       restartPolicy: OnFailure
