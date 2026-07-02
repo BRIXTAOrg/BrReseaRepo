@@ -1,0 +1,21 @@
+apiVersion: autoscaling.k8s.io/v1
+kind: VerticalPodAutoscaler
+metadata:
+  name: vpa-embeddings
+spec:
+  targetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: worker-embeddings
+  updatePolicy:
+    updateMode: Auto
+  resourcePolicy:
+    containerPolicies:
+      - containerName: '*'
+        minAllowed:
+          cpu: "500m"
+          memory: "512Mi"
+        maxAllowed:
+          cpu: "3000m"
+          memory: "6Gi"
+        controlledResources: ["cpu", "memory"]

@@ -1,0 +1,15 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: drizzle-migration
+spec:
+  template:
+    spec:
+      containers:
+      - name: migration
+        image: docker.io/goswamirohit/brresearepo:v1
+        command: ["npx", "drizzle-kit", "push:pg", "--config=infra/drizzle.config.ts"]
+        envFrom:
+        - secretRef:
+            name: app-secrets
+      restartPolicy: OnFailure

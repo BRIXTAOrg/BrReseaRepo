@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: gateway
+  template:
+    metadata:
+      labels:
+        app: gateway
+    spec:
+      containers:
+      - name: gateway
+        image: docker.io/goswamirohit/brresearepo:v1
+        command: ["uvicorn", "gateway.main:app", "--host", "0.0.0.0", "--port", "8000"] # Internal container port can stay 8000 safely
+        envFrom:
+        - secretRef:
+            name: app-secrets
+        volumeMounts:
+        - name: shared-storage
+          mountPath: /app/storage
+      volumes:
+      - name: shared-storage
+        persistentVolumeClaim:
+          claimName: storage-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-service
+spec:
+  type: NodePort
+  selector:
+    app: gateway
+  ports:
+    - protocol: TCP
+      port: 80         # Internal cluster communication port
+      targetPort: 8000   # Directs to your FastAPI application container port
+      nodePort: 32080    # The safe, open port you will use on your Tailscale host

@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-embeddings
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-embeddings
+  template:
+    metadata:
+      labels:
+        app: worker-embeddings
+    spec:
+      terminationGracePeriodSeconds: 300
+      containers:
+      - name: celery-embeddings
+        image: docker.io/goswamirohit/brresearepo:v1
+        command: ["celery", "-A", "workers.celery_app", "worker", "-Q", "embeddings", "--loglevel=info"]
+        envFrom:
+        - secretRef:
+            name: app-secrets
+        env:
+        - name: CELERY_BROKER_URL
+          value: "redis://redis-service:6379/0"
+        volumeMounts:
+        - name: shared-storage
+          mountPath: /app/storage
+        resources:
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+      volumes:
+      - name: shared-storage
+        persistentVolumeClaim:
+          claimName: storage-pvc
