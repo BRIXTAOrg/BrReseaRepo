@@ -1,4 +1,4 @@
-# BRIXTA Research Pipeline
+# BRIXTA Core
 
 A modular, event-driven research ingestion pipeline designed for scalable document acquisition, parsing, semantic chunking, embedding generation, and vector storage.
 
@@ -6,136 +6,113 @@ A modular, event-driven research ingestion pipeline designed for scalable docume
 ## Architecture
 
 ```text
-                               Client
-                                  │
-                                  ▼
-                         FastAPI Gateway
-                                  │
-                                  ▼
-                    Neon PostgreSQL (ingestion_jobs)
-                                  │
-                                  ▼
-                         Redis Message Broker
-                                  │
-                                  ▼
-                          Celery Task Queue
-                                  │
-                                  ▼
-                        Document Downloader
-                                  │
-                                  ▼
-                           storage/raw/
-                                  │
-                                  ▼
-                           Docling Parser
-                                  │
-          ┌───────────────────────┴───────────────────────┐
-          ▼                                               ▼
- storage/docling/                               storage/markdown/
- (Canonical DoclingDocument)                            │
-                                                        ▼
-                                            Hybrid Chunking Engine
-                                                        │
-                                                        ▼
-                                               storage/chunks/
-                                                        │
-                                                        ▼
-                                           Nomic Embed v1.5 (OSS)
-                                                        │
-                                                        ▼
-                                            storage/embeddings/
-                                                        │
-                                                        ▼
-                                             Storage Persistence
-                                                        │
-                                                        ▼
-                          Neon PostgreSQL (document_chunks + pgvector)
+                     Client
+                        │
+                        ▼
+                    FastAPI API
+                        │
+                        ▼
+                PipelineContext
+                        │
+                        ▼
+                 Celery Runtime
+                        │
+                        ▼
+                  Plugin Loader
+                        │
+        ┌───────────────┼────────────────┐
+        ▼               ▼                ▼
+ DownloaderPlugin   ParserPlugin   StoragePlugin
+        │               │                │
+        ▼               ▼                ▼
+Official Plugins (Default, Docling, Nomic, pgvector)
+                        │
+                        ▼
+                Artifact Repository
+                        │
+                        ▼
+              PostgreSQL + pgvector
 ```
 ---
 
 ## Project Structure
 
 ```text
+brixta-core/
 
-BRIXTAresearchPipeline/
-├── Resea/                  # Python Virtual Environment
+├── api/
 │
-├── infra/                  # Drizzle ORM Schema & Infrastructure
-│   ├── drizzle/
-│   ├── drizzle.config.ts
-│   └── schema.ts
-│
-├── gateway/
-│   └── main.py
-│
-├── shared/
-│   ├── config.py
-│   ├── constants.py
-│   ├── database.py
-│   ├── enums.py
-│   ├── exceptions.py
-│   └── schemas.py
-│
-├── workers/
-│   ├── celery_app.py
-│   │
+├── runtime/
 │   ├── tasks/
-│   │   ├── ingestion.py
-│   │   ├── parser.py
-│   │   ├── chunker.py
-│   │   ├── embeddings.py
-│   │   └── storage.py
-│   │
 │   ├── downloader/
-│   │   └── service.py
-│   │
 │   ├── parser/
-│   │   └── service.py
-│   │
 │   ├── chunker/
-│   │   └── service.py
-│   │
 │   ├── embeddings/
-│   │   └── service.py
-│   │
-│   ├── storage/
-│   │   └── service.py
-│   │
-│   └── utils/
-│       └── job_status.py
+│   └── storage/
+│
+├── brixta_sdk/
+│   ├── context.py
+│   ├── downloader.py
+│   ├── parser.py
+│   ├── chunker.py
+│   ├── embedding.py
+│   └── storage.py
+│
+├── plugins/
+│   ├── downloader/
+│   ├── parser/
+│   ├── chunker/
+│   ├── embedding/
+│   └── storage/
+│
+├── core/
+│   ├── plugin_loader.py
+│   ├── config.py
+|   ├── constants.py
+|   ├── enums.py
+|   ├── exceptions.py
+│   └── database.py
 │
 ├── storage/
-│   ├── raw/
-│   ├── docling/
-│   ├── markdown/
-│   ├── chunks/
-│   └── embeddings/
-│
-├── .env
-├── requirements.txt
+├── infra/
+├── k8s/
 └── README.md
 ```
 
 ---
 
+## Core Components
+- API
+- Runtime
+- SDK
+- Plugin Loader
+- Official Plugins
+- Artifact Repository
+- Infrastructure
+
 ## Technology Stack
 
 | Layer | Technology |
 |--------|------------|
-| API | FastAPI |
+| API Runtime | FastAPI |
 | Validation | Pydantic |
-| Database | Neon PostgreSQL |
-| ORM / Schema | Drizzle ORM |
-| Queue Broker | Redis |
-| Task Queue | Celery |
-| Document Parsing | Docling |
-| Document Representation | DoclingDocument |
-| Chunking | HybridChunker |
-| Embeddings | Nomic Embed v1.5 |
-| Vector Database | PostgreSQL + pgvector |
+| Pipeline Runtime | Celery |
+| Message Broker | Redis |
+| Plugin SDK | BRIXTA SDK |
+| Plugin Loader | BRIXTA Plugin Loader |
+| Downloader Plugin | Default Downloader |
+| Parser Plugin | Docling |
+| Chunking Plugin | HybridChunker |
+| Embedding Plugin | Nomic Embed v1.5 |
+| Storage Plugin | PostgreSQL + pgvector |
+| Pipeline Context | BRIXTA PipelineContext |
+| Artifact Repository | Local Filesystem *(MinIO Planned)* |
+| Relational Database | Neon PostgreSQL |
+| Schema Management | Drizzle ORM |
 | HTTP Client | Requests |
-| Local Development | Docker + Colima |
-| Orchestration | Kubernetes (K3s) |
+| Containerization | Docker |
+| Local Development | Colima |
+| Container Orchestration | Kubernetes (K3s) |
 | Secrets Management | Infisical Operator |
 ---
 
@@ -162,81 +139,166 @@ BRIXTAresearchPipeline/
 
 # Design Philosophy
 
-BRIXTA follows an **Integration-First** architecture.
+BRIXTA Core follows an **Integration-First** architecture.
 
-Instead of reinventing mature technologies, BRIXTA integrates specialized open-source components into a unified research ingestion platform.
+Rather than reinventing mature technologies, BRIXTA integrates proven open-source systems through stable interfaces. The core runtime is responsible only for orchestration, pipeline execution, state management, and scheduling. Specialized capabilities such as downloading, parsing, chunking, embedding generation, and storage are implemented as interchangeable plugins.
 
-Each pipeline stage performs exactly one responsibility and produces a deterministic artifact that can be independently inspected, regenerated, or replaced.
+The runtime never depends on a specific implementation. It depends only on SDK contracts.
 
 ```text
-Acquire
-    │
-    ▼
-Normalize
-    │
-    ▼
-Parse
-    │
-    ▼
-Chunk
-    │
-    ▼
-Embed
-    │
-    ▼
-Store
+                  Runtime
+                      │
+                      ▼
+               Plugin Loader
+                      │
+        ┌─────────────┼─────────────┐
+        ▼             ▼             ▼
+ DownloaderPlugin ParserPlugin StoragePlugin
+        │             │             │
+        ▼             ▼             ▼
+ Default       Docling       PostgreSQL
+ Downloader                    + pgvector
 ```
 
 Core principles:
 
 - Integration over reinvention
+- Plugin-first architecture
+- Stable SDK contracts
 - Single Responsibility Principle
 - Configuration over hardcoded implementations
-- Asynchronous processing
-- Reproducible pipelines
+- Asynchronous event-driven execution
+- Deterministic processing
+- Artifact-driven pipelines
 - Vendor-independent architecture
-- Deterministic artifacts
 - Horizontally scalable workers
 
 ---
 
-# Worker Architecture
+# Runtime Architecture
 
-Every Celery worker performs one responsibility only.
+BRIXTA Runtime is responsible for executing pipeline stages, scheduling work, and orchestrating plugins.
 
 ```text
-Downloader
-      │
-      ▼
-Parser
-      │
-      ▼
-Chunker
-      │
-      ▼
-Embedding
+Gateway
+    │
+    ▼
+PipelineContext
+    │
+    ▼
+Downloader Plugin
+    │
+    ▼
+Parser Plugin
+    │
+    ▼
+Chunker Plugin
+    │
+    ▼
+Embedding Plugin
+    │
+    ▼
+Storage Plugin
 ```
 
-Each worker:
+Each stage:
 
-- Receives a single input
-- Produces a deterministic output
-- Dispatches the next worker
-- Does not know how previous stages work
+- Receives a shared `PipelineContext`
+- Performs one responsibility
+- Updates the context
+- Produces deterministic artifacts
+- Dispatches the next stage
+- Knows nothing about previous implementations
 
-This keeps the pipeline loosely coupled and allows individual stages to evolve independently.
+This keeps the runtime loosely coupled while allowing plugins to evolve independently.
 
 ---
 
-# Artifact Pipeline
+# Plugin Architecture
 
-Every stage produces a permanent artifact.
+Every capability inside BRIXTA is represented by an SDK interface.
+
+```text
+BRIXTA Runtime
+       │
+       ▼
+Plugin Loader
+       │
+       ▼
+BRIXTA SDK Interfaces
+       │
+       ▼
+Official Plugins
+       │
+       ▼
+Open Source Technologies
+```
+
+Current official plugins:
+
+| Plugin Type | Current Implementation |
+|--------------|------------------------|
+| Downloader | Default Downloader |
+| Parser | Docling |
+| Chunker | HybridChunker |
+| Embedding | Nomic Embed v1.5 |
+| Storage | PostgreSQL + pgvector |
+
+Because the runtime depends only on SDK contracts, implementations can be replaced without modifying pipeline logic.
+
+---
+
+# Pipeline Context
+
+Every stage receives the same `PipelineContext`.
+
+```text
+Gateway
+    │
+    ▼
+PipelineContext
+    │
+    ▼
+Downloader
+    │
+    ▼
+PipelineContext
+    │
+    ▼
+Parser
+    │
+    ▼
+PipelineContext
+    │
+    ▼
+Chunker
+    │
+    ▼
+PipelineContext
+    │
+    ▼
+Embedding
+    │
+    ▼
+PipelineContext
+    │
+    ▼
+Storage
+```
+
+The context contains the complete state of a processing job, including source information, generated artifacts, metadata, runtime configuration, and future plugin-specific data.
+
+---
+
+# Artifact Repository
+
+Every pipeline stage produces a permanent artifact.
 
 ```text
 storage/
 
 raw/
-    Original downloaded document
+    Downloaded documents
 
 docling/
     Canonical DoclingDocument
@@ -245,77 +307,81 @@ markdown/
     Markdown representation
 
 chunks/
-    Hybrid semantic chunks
+    Semantic chunks
 
 embeddings/
-    Embedding vectors
+    Generated embedding vectors
 ```
 
-Artifacts allow:
+Artifacts enable:
 
-- Reproducibility
-- Easy debugging
+- Pipeline reproducibility
+- Independent debugging
 - Pipeline inspection
-- Reprocessing
+- Incremental reprocessing
 - Model upgrades
-- Re-embedding without downloading documents again
+- Re-embedding without downloading again
+- Offline analysis
 
-The filesystem is treated as BRIXTA's **Artifact Repository**.
+The filesystem serves as BRIXTA's **Artifact Repository**, while PostgreSQL stores searchable knowledge.
 
 ---
 
 # Configuration-Driven Architecture
 
-Infrastructure is selected through configuration instead of hardcoded implementations.
+Infrastructure and plugins are selected through configuration rather than hardcoded implementations.
 
 Examples:
 
-- PostgreSQL
-- Redis
-- Embedding Provider
-- Embedding Model
+- Downloader Plugin
+- Parser Plugin
+- Chunking Plugin
+- Embedding Plugin
+- Storage Plugin
 - Logging
+- Message Broker
 - Future LLM Providers
 
-Current development configuration:
+Development architecture:
 
 ```text
 MacBook
-     │
-     ▼
+    │
+    ▼
 Docker
-     │
-     ▼
+    │
+    ▼
 Redis
-     │
-     ▼
-Celery
-     │
-     ▼
-Nomic Embed
+    │
+    ▼
+Celery Runtime
+    │
+    ▼
+Official Plugins
 ```
 
 Production architecture:
 
 ```text
-Linux
-     │
-     ▼
-Redis Cluster
-     │
-     ▼
-Celery Workers
-     │
-     ▼
-GPU Embedding Workers
-     │
-     ▼
-Neon PostgreSQL (pgvector)
+Kubernetes
+      │
+      ▼
+Redis
+      │
+      ▼
+Celery Runtime
+      │
+      ▼
+Plugin Loader
+      │
+      ▼
+Official Plugins
+      │
+      ▼
+PostgreSQL + pgvector
 ```
 
-Because infrastructure is configuration-driven, BRIXTA can migrate from local development to cloud deployment without changing business logic.
-
----
+Because the runtime depends only on SDK interfaces, BRIXTA can evolve from local development to distributed cloud deployments without changing business logic. New plugins, infrastructure providers, and commercial services can be introduced by configuration rather than code changes.
 
 # Why Artifact Storage?
 
@@ -504,41 +570,141 @@ kubectl delete -f k8s/
 
 ## Roadmap
 
-### Retrieval Layer
+### Phase 1 — BRIXTA Core
 
-* [ ] Semantic Vector Search
-* [ ] Semantic Search API
-* [ ] Research Retrieval (RAG) API
-* [ ] Metadata Filtering
-* [ ] Hybrid Retrieval (Vector + BM25)
+The open-source runtime powering the BRIXTA ecosystem.
 
-### Pipeline Improvements
+#### Architecture
 
-* [ ] Markdown Cleaner
-* [ ] Connection Pooling (`psycopg_pool`)
-* [ ] Worker Monitoring (Prometheus)
-* [ ] Grafana Dashboards
+- [x] FastAPI API Runtime
+- [x] Celery Runtime
+- [x] Redis Message Broker
+- [x] Kubernetes (K3s) Deployment
+- [x] Plugin SDK
+- [x] PipelineContext
+- [x] Plugin Loader
+- [x] Official Plugin Architecture
 
-### User Platform
+#### Official Plugins
 
-* [ ] Frontend Dashboard
-* [ ] Google Drive / OneDrive Connectors
-* [ ] Multi-Tenant Workspace Management
+- [x] Default Downloader
+- [x] Docling Parser
+- [x] HybridChunker
+- [x] Nomic Embed v1.5
+- [x] PostgreSQL + pgvector Storage
 
-### Infrastructure
+#### Runtime Improvements
 
-* [x] Local Kubernetes (K3s) Deployment
+- [ ] Dynamic Plugin Discovery
+- [ ] Plugin Configuration (`plugins.yaml`)
+- [ ] Retry Policies
+- [ ] Dead Letter Queues
+- [ ] Connection Pooling (`psycopg_pool`)
+- [ ] Metrics API
+- [ ] Prometheus Integration
+- [ ] Grafana Dashboards
+- [ ] OpenTelemetry Tracing
+- [ ] Horizontal Pod Autoscaling
+- [ ] KEDA Event Scaling
+
+---
+
+### Phase 2 — BRIXTA Platform
+
+Hosted Vector Embeddings as a Service.
+
+- [ ] Authentication
+- [ ] API Keys
+- [ ] Credits & Usage Metering
+- [ ] Billing
+- [ ] User Dashboard
+- [ ] Organization & Team Workspaces
+- [ ] Multi-Tenant Runtime
+- [ ] REST API
+- [ ] Python SDK
+- [ ] JavaScript SDK
+- [ ] CLI
+
+---
+
+### Phase 3 — BRIXTA Marketplace
+
+The OpenRouter for Vector Embeddings.
+
+- [ ] Plugin Registry
+- [ ] Plugin Installation
+- [ ] Plugin Updates
+- [ ] Plugin Versioning
+- [ ] Plugin Verification
+- [ ] Community Plugins
+- [ ] Commercial Plugins
+- [ ] Revenue Sharing
+- [ ] Plugin Marketplace
+
+---
+
+### Phase 4 — BRIXTA Cloud
+
+Managed Infrastructure.
+
+- [ ] Distributed Worker Clusters
+- [ ] GPU Compute Pools
+- [ ] Autoscaling
+- [ ] Managed Storage
+- [ ] Distributed Artifact Repository
+- [ ] Global API
+- [ ] Multi-Region Deployment
+- [ ] Enterprise Management
+
+---
+
+### Phase 5 — BRIXTA Ecosystem
+
+Industry-specific embedding solutions built on BRIXTA Core.
+
+- [ ] Document Intelligence
+- [ ] Legal AI
+- [ ] Medical Knowledge
+- [ ] Financial Research
+- [ ] Geospatial Embeddings
+- [ ] Multimodal Embeddings
+- [ ] Image Search
+- [ ] Audio Embeddings
+- [ ] Video Embeddings
+- [ ] Scientific Knowledge Pipelines
 
 ---
 
 ## Completed
 
-* [x] FastAPI Gateway
-* [x] Redis + Celery Worker Pipeline
-* [x] Document Downloader
-* [x] Docling Parsing
-* [x] Canonical DoclingDocument Serialization
-* [x] Hybrid Semantic Chunking
-* [x] Open-Source Embedding Generation (Nomic Embed v1.5)
-* [x] Automatic Vector Persistence (pgvector)
-* [x] End-to-End AI Research Ingestion Pipeline
+### Runtime
+
+- [x] FastAPI API
+- [x] Celery Runtime
+- [x] Redis Broker
+- [x] Kubernetes Deployment
+- [x] Plugin SDK
+- [x] PipelineContext
+- [x] Plugin Loader
+- [x] Integration-First Architecture
+
+### Official Plugins
+
+- [x] Default Downloader
+- [x] Docling Parser
+- [x] HybridChunker
+- [x] Nomic Embed v1.5
+- [x] PostgreSQL + pgvector Storage
+
+### Pipeline
+
+- [x] End-to-End Asynchronous Processing
+- [x] HTML / PDF Download
+- [x] Canonical DoclingDocument Generation
+- [x] Markdown Export
+- [x] Semantic Chunking
+- [x] Embedding Generation
+- [x] Vector Persistence
+- [x] Artifact Repository
+- [x] Production Kubernetes Deployment
+- [x] Production Load Testing (k6)
