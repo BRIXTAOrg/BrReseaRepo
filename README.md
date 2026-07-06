@@ -94,27 +94,21 @@ brixta-core/
 
 | Layer | Technology |
 |--------|------------|
-| API Runtime | FastAPI |
-| Validation | Pydantic |
-| Pipeline Runtime | Celery |
+| API | FastAPI |
+| Runtime | Celery |
 | Message Broker | Redis |
-| Plugin SDK | BRIXTA SDK |
-| Plugin Loader | BRIXTA Plugin Loader |
-| Downloader Plugin | Default Downloader |
-| Parser Plugin | Docling |
-| Chunking Plugin | HybridChunker |
-| Embedding Plugin | Nomic Embed v1.5 |
-| Storage Plugin | PostgreSQL + pgvector |
-| Pipeline Context | BRIXTA PipelineContext |
-| Artifact Repository | Local Filesystem *(MinIO Planned)* |
-| Relational Database | Neon PostgreSQL |
-| Schema Management | Drizzle ORM |
-| HTTP Client | Requests |
-| Containerization | Docker |
-| Local Development | Colima |
-| Container Orchestration | Kubernetes (K3s) |
-| Secrets Management | Infisical Operator |
----
+| Context Model | PipelineContext |
+| Plugin System | BRIXTA SDK |
+| Plugin Loader | PluginLoader |
+| Parser | Docling |
+| Chunker | HybridChunker |
+| Embeddings | Nomic Embed v1.5 |
+| Vector Store | PostgreSQL + pgvector |
+| Job Persistence | PostgreSQL |
+| Orchestration | Kubernetes (K3s) |
+| Secrets | Infisical |
+| Load Testing | k6 |
+
 
 ## Current Progress
 
@@ -139,114 +133,147 @@ brixta-core/
 
 # Design Philosophy
 
-BRIXTA Core follows an **Integration-First** architecture.
+BRIXTA follows an **Integration-First** architecture.
 
-Rather than reinventing mature technologies, BRIXTA integrates proven open-source systems through stable interfaces. The core runtime is responsible only for orchestration, pipeline execution, state management, and scheduling. Specialized capabilities such as downloading, parsing, chunking, embedding generation, and storage are implemented as interchangeable plugins.
+Rather than rebuilding mature technologies, BRIXTA integrates best-in-class open-source systems behind stable interfaces. BRIXTA Core acts as an orchestration engine while specialized components perform the heavy work.
 
-The runtime never depends on a specific implementation. It depends only on SDK contracts.
+The project is designed around one principle:
 
-```text
-                  Runtime
-                      │
-                      ▼
-               Plugin Loader
-                      │
-        ┌─────────────┼─────────────┐
-        ▼             ▼             ▼
- DownloaderPlugin ParserPlugin StoragePlugin
-        │             │             │
-        ▼             ▼             ▼
- Default       Docling       PostgreSQL
- Downloader                    + pgvector
+> **Write the glue, not the world.**
+
+Every major capability is replaceable through plugins.
+
+```
+Acquire
+    │
+    ▼
+Normalize
+    │
+    ▼
+Parse
+    │
+    ▼
+Chunk
+    │
+    ▼
+Embed
+    │
+    ▼
+Store
 ```
 
-Core principles:
+Core Principles
 
 - Integration over reinvention
 - Plugin-first architecture
-- Stable SDK contracts
-- Single Responsibility Principle
+- Stable SDK interfaces
+- Runtime owns orchestration
 - Configuration over hardcoded implementations
-- Asynchronous event-driven execution
-- Deterministic processing
-- Artifact-driven pipelines
-- Vendor-independent architecture
+- Event-driven asynchronous execution
+- Vendor-neutral infrastructure
 - Horizontally scalable workers
+- Open-source first
 
----
+BRIXTA Core orchestrates the pipeline.
+
+Plugins perform the work.
+
+Repositories manage persistence.
+
+Infrastructure remains replaceable.
+
 
 # Runtime Architecture
 
-BRIXTA Runtime is responsible for executing pipeline stages, scheduling work, and orchestrating plugins.
+```
+                API
 
-```text
-Gateway
-    │
-    ▼
-PipelineContext
-    │
-    ▼
-Downloader Plugin
-    │
-    ▼
-Parser Plugin
-    │
-    ▼
-Chunker Plugin
-    │
-    ▼
-Embedding Plugin
-    │
-    ▼
-Storage Plugin
+                 │
+
+                 ▼
+
+         PipelineContext
+
+                 │
+
+                 ▼
+
+              Runtime
+
+                 │
+
+     ┌───────────┼────────────┐
+
+     ▼           ▼            ▼
+
+ JobRepository PluginLoader ArtifactRepository
+
+                 │
+
+                 ▼
+
+Downloader
+
+     ▼
+
+Parser
+
+     ▼
+
+Chunker
+
+     ▼
+
+Embedding
+
+     ▼
+
+Storage
 ```
 
-Each stage:
+The API only accepts requests.
 
-- Receives a shared `PipelineContext`
-- Performs one responsibility
-- Updates the context
-- Produces deterministic artifacts
-- Dispatches the next stage
-- Knows nothing about previous implementations
+The Runtime owns:
 
-This keeps the runtime loosely coupled while allowing plugins to evolve independently.
+- Job lifecycle
+- Worker orchestration
+- Plugin execution
+- Status transitions
+- Retry behaviour
 
----
+Each worker performs exactly one responsibility and passes a shared `PipelineContext` to the next stage.
+
 
 # Plugin Architecture
 
-Every capability inside BRIXTA is represented by an SDK interface.
+Every processing stage is implemented as a plugin.
 
-```text
-BRIXTA Runtime
-       │
-       ▼
-Plugin Loader
-       │
-       ▼
-BRIXTA SDK Interfaces
-       │
-       ▼
-Official Plugins
-       │
-       ▼
-Open Source Technologies
+```
+DownloaderPlugin
+
+ParserPlugin
+
+ChunkerPlugin
+
+EmbeddingPlugin
+
+StoragePlugin
 ```
 
-Current official plugins:
+BRIXTA Core depends only on SDK interfaces.
 
-| Plugin Type | Current Implementation |
-|--------------|------------------------|
-| Downloader | Default Downloader |
-| Parser | Docling |
-| Chunker | HybridChunker |
-| Embedding | Nomic Embed v1.5 |
-| Storage | PostgreSQL + pgvector |
+Concrete implementations are loaded through the `PluginLoader`.
 
-Because the runtime depends only on SDK contracts, implementations can be replaced without modifying pipeline logic.
+Current plugins include:
 
----
+- Default Downloader
+- Docling Parser
+- Hybrid Chunker
+- Nomic Embeddings
+- PostgreSQL + pgvector Storage
+
+Future implementations can be added without modifying BRIXTA Core.
+
 
 # Pipeline Context
 
@@ -686,6 +713,11 @@ Industry-specific embedding solutions built on BRIXTA Core.
 - [x] Plugin SDK
 - [x] PipelineContext
 - [x] Plugin Loader
+- [x] JobRepository
+- [x] Strongly Typed JobStatus
+- [x] Runtime-owned Job Lifecycle
+- [x] Automatic Task Retries
+- [x] Structured Runtime Logging
 - [x] Integration-First Architecture
 
 ### Official Plugins
@@ -705,6 +737,15 @@ Industry-specific embedding solutions built on BRIXTA Core.
 - [x] Semantic Chunking
 - [x] Embedding Generation
 - [x] Vector Persistence
-- [x] Artifact Repository
 - [x] Production Kubernetes Deployment
 - [x] Production Load Testing (k6)
+
+### Next
+
+- [ ] Artifact Repository
+- [ ] Local Filesystem Backend
+- [ ] MinIO Backend
+- [ ] Idempotent Artifact Processing
+- [ ] Dynamic Plugin Discovery
+- [ ] Configuration-driven Plugins
+- [ ] Plugin Marketplace
