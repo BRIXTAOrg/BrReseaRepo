@@ -21,11 +21,6 @@ def generate_embeddings_task(context_data: dict):
     context.job_id,
     )
 
-    logger.info(
-    "Embedding completed | job=%s artifact=%s",
-    context.job_id,
-    context.embeddings_path,
-    )
 
     context = PluginLoader.embedding.embed(context)
 

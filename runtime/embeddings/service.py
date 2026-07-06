@@ -3,17 +3,7 @@ import json
 
 from sentence_transformers import SentenceTransformer
 
-from core.enums import JobStatus
-from runtime.utils.job_status import update_job_status
-
-
-CHUNK_STORAGE = Path("storage/chunks")
-EMBEDDING_STORAGE = Path("storage/embeddings")
-
-EMBEDDING_STORAGE.mkdir(
-    parents=True,
-    exist_ok=True,
-)
+from runtime.artifacts.repository import ArtifactRepository
 
 
 # Loaded once when the Celery worker starts.
@@ -28,26 +18,13 @@ def generate_embeddings(job_id: str) -> Path:
     Nomic Embed v1.5.
     """
 
-    update_job_status(
-        job_id,
-        JobStatus.EMBEDDING,
-    )
-
-    chunk_file = CHUNK_STORAGE / f"{job_id}.json"
-
-    if not chunk_file.exists():
-
-        update_job_status(
-            job_id,
-            JobStatus.FAILED,
+    if not ArtifactRepository.chunks_exists(job_id):
+        raise FileNotFoundError(
+            f"Chunk artifact for '{job_id}' not found."
         )
-
-        raise FileNotFoundError(chunk_file)
 
     chunks = json.loads(
-        chunk_file.read_text(
-            encoding="utf-8",
-        )
+        ArtifactRepository.load_chunks(job_id)
     )
 
     embedded_chunks = []
@@ -67,20 +44,13 @@ def generate_embeddings(job_id: str) -> Path:
             }
         )
 
-    output = EMBEDDING_STORAGE / f"{job_id}.json"
-
-    output.write_text(
+    ArtifactRepository.save_embeddings(
+        job_id,
         json.dumps(
             embedded_chunks,
             indent=2,
             ensure_ascii=False,
         ),
-        encoding="utf-8",
     )
 
-    update_job_status(
-        job_id,
-        JobStatus.EMBEDDED,
-    )
-
-    return output
+    return Path(f"embeddings/{job_id}.json")

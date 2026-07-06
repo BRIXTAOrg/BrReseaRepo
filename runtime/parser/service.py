@@ -1,24 +1,9 @@
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from docling.document_converter import DocumentConverter
 
-from core.enums import JobStatus
-from runtime.utils.job_status import update_job_status
-
-
-RAW_STORAGE = Path("storage/raw")
-DOCLING_STORAGE = Path("storage/docling")
-MARKDOWN_STORAGE = Path("storage/markdown")
-
-DOCLING_STORAGE.mkdir(
-    parents=True,
-    exist_ok=True,
-)
-
-MARKDOWN_STORAGE.mkdir(
-    parents=True,
-    exist_ok=True,
-)
+from runtime.artifacts.repository import ArtifactRepository
 
 
 converter = DocumentConverter()
@@ -30,77 +15,45 @@ def parse_document(job_id: str) -> Path:
     both the serialized document and Markdown.
     """
 
-    update_job_status(
-        job_id,
-        JobStatus.PARSING,
-    )
-
-    raw_file = None
-
-    for extension in (
-        ".html",
-        ".pdf",
-    ):
-        candidate = RAW_STORAGE / f"{job_id}{extension}"
-
-        if candidate.exists():
-            raw_file = candidate
-            break
-
-    if raw_file is None:
-        update_job_status(
-            job_id,
-            JobStatus.FAILED,
-        )
-
+    if not ArtifactRepository.raw_exists(job_id):
         raise FileNotFoundError(
             f"No downloaded document found for job '{job_id}'."
         )
 
-    try:
+    raw_html = ArtifactRepository.load_raw(job_id)
 
-        result = converter.convert(str(raw_file))
+    with NamedTemporaryFile(
+        suffix=".html",
+        mode="w",
+        encoding="utf-8",
+        delete=False,
+    ) as tmp:
 
-        document = result.document
+        tmp.write(raw_html)
+        temp_file = tmp.name
 
-        # --------------------------------------------------
-        # Save canonical DoclingDocument
-        # --------------------------------------------------
+    result = converter.convert(temp_file)
 
-        docling_path = DOCLING_STORAGE / f"{job_id}.json"
+    document = result.document
 
-        docling_path.write_text(
-            document.model_dump_json(
-                indent=2,
-            ),
-            encoding="utf-8",
-        )
+    # --------------------------------------------------
+    # Save canonical DoclingDocument
+    # --------------------------------------------------
 
-        # --------------------------------------------------
-        # Export Markdown
-        # --------------------------------------------------
+    ArtifactRepository.save_docling(
+        job_id,
+        document.model_dump_json(
+            indent=2,
+        ),
+    )
 
-        markdown = document.export_to_markdown()
+    # --------------------------------------------------
+    # Export Markdown
+    # --------------------------------------------------
 
-        markdown_path = MARKDOWN_STORAGE / f"{job_id}.md"
+    ArtifactRepository.save_markdown(
+        job_id,
+        document.export_to_markdown(),
+    )
 
-        markdown_path.write_text(
-            markdown,
-            encoding="utf-8",
-        )
-
-        update_job_status(
-            job_id,
-            JobStatus.PARSED,
-        )
-
-        return markdown_path
-
-    except Exception:
-
-        update_job_status(
-            job_id,
-            JobStatus.FAILED,
-        )
-
-        raise
+    return Path(f"markdown/{job_id}.md")

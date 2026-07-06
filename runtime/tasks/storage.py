@@ -21,11 +21,6 @@ def persist_embeddings_task(context_data: dict):
     context.job_id,
     )
 
-    logger.info(
-    "Storage completed | job=%s",
-    context.job_id,
-    )
-
     context = PluginLoader.storage.persist(context)
 
     logger.info(

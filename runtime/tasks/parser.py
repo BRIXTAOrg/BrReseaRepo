@@ -21,12 +21,6 @@ def parse_document_task(context_data: dict):
     context.job_id,
     )
 
-    logger.info(
-    "Parser completed | job=%s artifact=%s",
-    context.job_id,
-    context.parsed_path,
-    )
-
     context = PluginLoader.parser.parse(context)
 
     logger.info(
