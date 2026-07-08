@@ -65,6 +65,13 @@ from api.prod_api.celery import (
     scheduled_tasks,
     stats,
 )
+# ---------------------------------------------------------------------
+# Plugins
+# ---------------------------------------------------------------------
+
+from api.prod_api.plugins import (
+    embedding_plugins,
+)
 
 # ---------------------------------------------------------------------
 # Docker
@@ -80,6 +87,15 @@ from api.prod_api.docker import (
 
 router = APIRouter()
 
+from api.prod_api.plugins import (
+    embedding_plugins,
+    downloader_plugins,
+)
+from api.prod_api.plugins import (
+    embedding_plugins,
+    downloader_plugins,
+    chunker_plugins,
+)
 
 # =====================================================================
 # Storage
@@ -254,3 +270,19 @@ def docker_restart(name: str):
 @router.get("/docker/logs/{name}")
 def docker_logs(name: str, tail: int = 200):
     return logs(name, tail)
+
+# =====================================================================
+# Plugins
+# =====================================================================
+
+@router.get("/plugins/embedding")
+def plugins_embedding():
+    return embedding_plugins()
+
+@router.get("/plugins/downloader")
+def plugins_downloader():
+    return downloader_plugins()
+
+@router.get("/plugins/chunker")
+def plugins_chunker():
+    return chunker_plugins()

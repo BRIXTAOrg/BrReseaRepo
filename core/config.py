@@ -16,9 +16,9 @@ REDIS_URL = os.getenv(
 # Embeddings
 # ---------------------------------------------------------------------
 
-EMBEDDING_PROVIDER = os.getenv(
-    "EMBEDDING_PROVIDER",
-    "nomic",
+EMBEDDING_PLUGIN = os.getenv(
+    "EMBEDDING_PLUGIN",
+    "sentence_transformers",
 )
 
 EMBEDDING_MODEL = os.getenv(

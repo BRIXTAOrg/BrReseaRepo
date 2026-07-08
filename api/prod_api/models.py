@@ -120,7 +120,7 @@ class DockerLogs(BaseModel):
 
 class RuntimeSettings(BaseModel):
     artifact_backend: str
-    embedding_provider: str
+    embedding_plugin: str
     embedding_model: str
     log_level: str
 
@@ -166,3 +166,40 @@ class CeleryHealth(BaseModel):
     provider: str
     healthy: bool
     error: str | None = None
+
+# ---------------------------------------------------------------------
+# Plugins
+# ---------------------------------------------------------------------
+
+
+class EmbeddingPlugin(BaseModel):
+    name: str
+    version: str
+    models: list[str]
+
+
+class DownloaderPlugin(BaseModel):
+    name: str
+    version: str
+    source_types: list[str]
+
+
+class EmbeddingPluginsResponse(BaseModel):
+    plugins: list[EmbeddingPlugin]
+
+
+class DownloaderPluginsResponse(BaseModel):
+    plugins: list[DownloaderPlugin]
+
+# ---------------------------------------------------------------------
+# Chunker Plugins
+# ---------------------------------------------------------------------
+
+
+class ChunkerPlugin(BaseModel):
+    name: str
+    version: str
+
+
+class ChunkerPluginsResponse(BaseModel):
+    plugins: list[ChunkerPlugin]

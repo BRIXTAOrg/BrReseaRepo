@@ -5,6 +5,10 @@ from .context import PipelineContext
 
 class DownloaderPlugin(ABC):
 
+    name: str
+    version: str
+    source_types: list[str]
+
     @abstractmethod
     def download(
         self,

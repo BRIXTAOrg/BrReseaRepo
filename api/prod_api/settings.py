@@ -1,7 +1,7 @@
 from core.config import (
     ARTIFACT_BACKEND,
+    EMBEDDING_PLUGIN,
     EMBEDDING_MODEL,
-    EMBEDDING_PROVIDER,
     LOG_LEVEL,
 )
 
@@ -17,7 +17,7 @@ def runtime() -> RuntimeSettings:
 
     return RuntimeSettings(
         artifact_backend=ARTIFACT_BACKEND,
-        embedding_provider=EMBEDDING_PROVIDER,
+        embedding_plugin=EMBEDDING_PLUGIN,
         embedding_model=EMBEDDING_MODEL,
         log_level=LOG_LEVEL,
     )
@@ -33,11 +33,11 @@ def infrastructure() -> dict:
     return {
         "database": {
             "provider": "postgresql",
-            "connected": True,      # we'll replace with a real health check next
+            "connected": True,  # TODO: real health check
         },
         "redis": {
             "provider": "redis",
-            "connected": True,      # real ping later
+            "connected": True,  # TODO: real ping
         },
         "storage": {
             "provider": ArtifactRepository.provider(),
@@ -53,7 +53,7 @@ def environment() -> dict:
 
     return {
         "artifact_backend": ARTIFACT_BACKEND,
-        "embedding_provider": EMBEDDING_PROVIDER,
+        "embedding_plugin": EMBEDDING_PLUGIN,
         "embedding_model": EMBEDDING_MODEL,
         "log_level": LOG_LEVEL,
     }
