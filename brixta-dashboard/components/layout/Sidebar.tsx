@@ -35,24 +35,9 @@ const sections = [
         icon: Upload,
       },
       {
-        name: "Jobs",
-        href: "/jobs",
-        icon: Briefcase,
-      },
-      {
         name: "Plugins",
         href: "/plugins",
         icon: Puzzle,
-      },
-      {
-        name: "Storage",
-        href: "/storage",
-        icon: Database,
-      },
-      {
-        name: "Monitoring",
-        href: "/monitoring",
-        icon: Activity,
       },
       {
         name: "Settings",
@@ -75,19 +60,19 @@ const sections = [
         icon: Boxes,
       },
       {
-        name: "Celery",
+        name: "Celery (Jobs)",
         href: "/celery",
         icon: Flower2,
+      },
+      {
+        name: "Storage (MinIO)",
+        href: "/storage",
+        icon: Database,
       },
       {
         name: "Redis",
         href: "/redis",
         icon: Server,
-      },
-      {
-        name: "MinIO",
-        href: "/minio",
-        icon: HardDrive,
       },
     ],
   },

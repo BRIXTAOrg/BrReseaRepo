@@ -1,69 +1,131 @@
 # BRIXTA Core
 
-A modular, event-driven research ingestion pipeline designed for scalable document acquisition, parsing, semantic chunking, embedding generation, artifact management, and vector storage.
+BRIXTA Core is a modular, event-driven AI integration platform for ingesting, transforming, embedding, storing, and serving enterprise knowledge.
+
+Built with an **Integration-First** philosophy, BRIXTA does not reinvent mature technologies. Instead, it provides a unified orchestration layer over best-in-class open-source components through a plugin architecture.
 
 ---
 
-## Architecture
+# Core Principles
+
+- Plugin First
+- Integration First
+- OSS First
+- Event Driven
+- Cloud Native
+- Kubernetes Native
+- Vendor Agnostic
+
+---
+
+# Architecture
 
 ```text
-                     Client
-                        │
-                        ▼
-                    FastAPI API
-                        │
-                        ▼
-                PipelineContext
-                        │
-                        ▼
-                 Celery Runtime
-                        │
-                        ▼
-                  Plugin Loader
-                        │
-        ┌───────────────┼──────────────────────────────┐
-        ▼               ▼                              ▼
- DownloaderPlugin   ParserPlugin               StoragePlugin
-        │               │                              │
-        └───────────────┼──────────────────────────────┘
-                        ▼
-    Official Plugins (Default, Docling, Nomic, pgvector)
-                        │
-                        ▼
-                Artifact Repository
-                        │
-                        ▼
-                 Artifact Backend
-                        │
-              ┌─────────┴─────────┐
-              ▼                   ▼
-      Local Filesystem         MinIO (S3)
-                        │
-                        ▼
-              PostgreSQL + pgvector
+                           Client
+                              │
+                              ▼
+                         FastAPI Gateway
+                              │
+                              ▼
+                       PipelineContext
+                              │
+                              ▼
+                       Celery Orchestrator
+                              │
+                              ▼
+                        Plugin Loader
+                              │
+     ┌──────────────┬──────────────┬──────────────┬──────────────┬──────────────┐
+     ▼              ▼              ▼              ▼              ▼
+ Downloader      Parser        Chunker      Embedding      Storage
+  Plugin          Plugin         Plugin        Plugin        Plugin
+     │              │              │              │              │
+     └──────────────┴──────────────┴──────────────┴──────────────┘
+                              │
+                              ▼
+                      Artifact Repository
+                              │
+                              ▼
+                      Artifact Backend
+                              │
+                  ┌───────────┴───────────┐
+                  ▼                       ▼
+         Local Filesystem              MinIO / S3
+                              │
+                              ▼
+                  PostgreSQL + pgvector
 ```
 
 ---
 
-## Project Structure
+# Event Pipeline
+
+# PipelineContext
+
+PipelineContext is the contract shared by every stage of the runtime.
+
+Rather than creating new payloads between workers, each plugin enriches the same context.
+
+```text
+URL / File
+      │
+      ▼
+Downloader
+      │
+      ▼
+Parser
+      │
+      ▼
+Chunker
+      │
+      ▼
+Embedding
+      │
+      ▼
+Storage
+```
+
+Every stage executes independently through Celery queues.
+
+---
+
+# Current Plugin System
+
+| Category | Default Plugin |
+|----------|----------------|
+| Downloader | HTTP Downloader |
+| Parser | Docling |
+| Chunker | Hybrid Chunker |
+| Embedding | Sentence Transformers |
+| Storage | pgvector |
+
+Each plugin implements a simple SDK interface and can be replaced without modifying the runtime.
+
+---
+
+# Supported Infrastructure
+
+| Component | Backend |
+|-----------|---------|
+| API | FastAPI |
+| Workers | Celery |
+| Broker | Redis |
+| Database | PostgreSQL |
+| Vector Store | pgvector |
+| Object Storage | Local / MinIO |
+| Container Platform | Docker |
+| Orchestration | Kubernetes |
+
+---
+
+# Project Structure
 
 ```text
 brixta-core/
 
 ├── api/
-│
-├── runtime/
-│   ├── tasks/
-│   ├── downloader/
-│   ├── parser/
-│   ├── chunker/
-│   ├── embeddings/
-│   ├── storage/
-│   └── artifacts/
-│       ├── backend.py
-│       ├── repository.py
-│       ├── local.py
-│       └── minio.py
+│   ├── prod_api/
+│   └── main.py
 │
 ├── brixta_sdk/
 │   ├── context.py
@@ -80,83 +142,214 @@ brixta-core/
 │   ├── embedding/
 │   └── storage/
 │
+├── runtime/
+│   ├── tasks/
+│   ├── artifacts/
+│   ├── celery_app.py
+│   ├── jobs/
+│   └── utils/
+│
 ├── core/
 │   ├── plugin_loader.py
 │   ├── config.py
-│   ├── constants.py
+│   ├── database.py
 │   ├── enums.py
-│   ├── exceptions.py
-│   └── database.py
+│   └── constants.py
 │
 ├── storage/
 ├── infra/
 ├── k8s/
+├── docker/
 └── README.md
 ```
 
 ---
 
-## Core Components
+# Production APIs
 
-- API
-- Runtime
-- SDK
-- Plugin Loader
-- Official Plugins
-- Artifact Repository
-- Artifact Backends
-- Infrastructure
+BRIXTA exposes production endpoints for runtime monitoring and infrastructure management.
 
-## Technology Stack
+```text
+/prod
 
-| Layer | Technology |
-|--------|------------|
-| API | FastAPI |
-| Runtime | Celery |
-| Message Broker | Redis |
-| Context Model | PipelineContext |
-| Plugin System | BRIXTA SDK |
-| Plugin Loader | PluginLoader |
-| Artifact Repository | ArtifactRepository |
-| Artifact Backends | Local Filesystem / MinIO (S3 Compatible) |
-| Parser | Docling |
-| Chunker | HybridChunker |
-| Embeddings | Nomic Embed v1.5 |
-| Vector Store | PostgreSQL + pgvector |
-| Job Persistence | PostgreSQL |
-| Orchestration | Kubernetes (K3s) |
-| Secrets | Infisical |
-| Load Testing | k6 |
+├── health
+├── storage
+├── settings
+├── plugins
+├── docker
+├── kubernetes
+├── celery
+└── redis
+```
+
+These APIs power the BRIXTA Dashboard.
 
 ---
 
-## Current Progress
+# Dashboard
+
+A dedicated Next.js dashboard is under active development.
+
+Planned modules include:
+
+- Dashboard
+- Ingestion
+- Jobs
+- Plugins
+- Storage
+- Monitoring
+- Docker
+- Kubernetes
+- Celery
+- Redis
+- MinIO
+- Marketplace
+
+---
+
+# Integration Philosophy
+
+BRIXTA integrates existing best-in-class open-source technologies instead of rebuilding them.
+
+| Capability | Strategy |
+|------------|----------|
+| OCR | Integration |
+| PDF Parsing | Integration |
+| Embeddings | Integration |
+| LLMs | Integration |
+| Vector Databases | Integration |
+| MQTT | Integration |
+| OPC UA | Integration |
+| SAP | Integration |
+| Tally | Integration |
+| Object Storage | Integration |
+| Authentication | Integration |
+
+---
+
+# Roadmap
+
+- Multi-plugin marketplace
+- Runtime plugin installation
+- Multi-tenant deployments
+- Distributed workers
+- Kubernetes operator
+- Webhook integrations
+- Authentication providers
+- Dashboard SSO
+- Plugin SDK publishing
+- Cloud deployment templates
+- Enterprise monitoring
+## Core Components
+
+| Component | Responsibility |
+|----------|----------------|
+| API Gateway | Accepts ingestion requests and exposes production APIs |
+| Runtime | Orchestrates asynchronous pipeline execution |
+| PipelineContext | Shared immutable context passed across pipeline stages |
+| BRIXTA SDK | Stable interfaces for building plugins |
+| Plugin Loader | Loads configured plugin implementations |
+| Official Plugins | Default OSS implementations for each processing stage |
+| Artifact Repository | Stores and retrieves processing artifacts |
+| Artifact Backends | Abstract object storage providers |
+| Job Repository | Persists job metadata and lifecycle |
+| Infrastructure | Redis, PostgreSQL, MinIO, Kubernetes, Docker |
+
+---
+
+# Technology Stack
+
+| Layer | Technology |
+|--------|------------|
+| Dashboard | Next.js 16 + React + TypeScript |
+| API | FastAPI |
+| Runtime | Celery |
+| Message Broker | Redis |
+| Database | PostgreSQL |
+| Vector Database | pgvector |
+| Context Model | PipelineContext |
+| Plugin SDK | BRIXTA SDK |
+| Downloader | HTTP Downloader |
+| Parser | Docling |
+| Chunker | Hybrid Chunker |
+| Embeddings | Sentence Transformers |
+| Default Model | Nomic Embed v1.5 |
+| Object Storage | Local Filesystem / MinIO |
+| Infrastructure | Docker |
+| Orchestration | Kubernetes (K3s) |
+| Secrets | Infisical |
+| Monitoring | Production API |
+| Dashboard | BRIXTA Dashboard (Next.js) |
+
+---
+
+# Current Progress
+
+## Core Platform
 
 - ✅ FastAPI Gateway
-- ✅ Neon PostgreSQL
-- ✅ Drizzle ORM Schema
-- ✅ pgvector Extension
-- ✅ Redis Infrastructure
-- ✅ Celery Worker Engine
-- ✅ Asynchronous Worker Chaining
-- ✅ Job Status Tracking
+- ✅ Production Management APIs
+- ✅ Celery Runtime
+- ✅ Redis Message Broker
+- ✅ PostgreSQL Integration
+- ✅ pgvector Storage
 - ✅ PipelineContext
-- ✅ Plugin SDK
+- ✅ Job Repository
+- ✅ Configuration System
+
+## Plugin SDK
+
+- ✅ Downloader SDK
+- ✅ Parser SDK
+- ✅ Chunker SDK
+- ✅ Embedding SDK
+- ✅ Storage SDK
 - ✅ Plugin Loader
-- ✅ Integration-First Architecture
+- ✅ Runtime Plugin Discovery
+- ✅ Configuration-driven Plugin Selection
+
+## Official Plugins
+
+- ✅ HTTP Downloader
+- ✅ Docling Parser
+- ✅ Hybrid Chunker
+- ✅ Sentence Transformers Embedding Plugin
+- ✅ pgvector Storage Plugin
+
+## Artifact System
+
 - ✅ Artifact Repository
 - ✅ Local Filesystem Backend
 - ✅ MinIO Backend
-- ✅ Configuration-Driven Artifact Backends
-- ✅ HTML/PDF Downloader
-- ✅ Docling Parsing
-- ✅ Canonical DoclingDocument Serialization
+- ✅ Configuration-driven Backend Selection
+
+## AI Pipeline
+
+- ✅ URL Download
+- ✅ Canonical DoclingDocument
 - ✅ Markdown Export
 - ✅ Hybrid Semantic Chunking
-- ✅ Open-Source Embedding Generation (Nomic Embed v1.5)
+- ✅ Open Source Embeddings
 - ✅ Automatic Vector Persistence
-- ✅ pgvector Storage
-- ✅ End-to-End AI Ingestion Pipeline
+- ✅ End-to-End Processing Pipeline
+
+## Infrastructure
+
+- ✅ Docker Development Environment
+- ✅ Kubernetes Manifests
+- ✅ Redis
+- ✅ MinIO
+- ✅ Production Monitoring APIs
+- ✅ Runtime Health Endpoints
+
+## Dashboard
+
+- 🚧 Next.js Dashboard
+- 🚧 Plugin Management
+- 🚧 Job Monitoring
+- 🚧 Infrastructure Monitoring
+- 🚧 Document Import UI
+- 🚧 Production Console
 
 ---
 
@@ -164,13 +357,13 @@ brixta-core/
 
 BRIXTA follows an **Integration-First** architecture.
 
-Rather than rebuilding mature technologies, BRIXTA integrates best-in-class open-source systems behind stable interfaces. BRIXTA Core acts as an orchestration engine while specialized components perform the heavy work.
+Rather than rebuilding mature technologies, BRIXTA integrates best-in-class open-source systems through stable SDK interfaces.
 
-The project is designed around one principle:
+The Runtime orchestrates.
 
-> **Write the glue, not the world.**
+Plugins perform the work.
 
-Every major capability is replaceable through stable interfaces.
+Infrastructure remains replaceable.
 
 ```
 Acquire
@@ -191,104 +384,84 @@ Embed
 Store
 ```
 
-Core Principles
+### Core Principles
 
-- Integration over reinvention
-- Plugin-first architecture
-- Stable SDK interfaces
-- Storage abstraction over storage coupling
-- Runtime owns orchestration
-- Configuration over hardcoded implementations
-- Event-driven asynchronous execution
-- Vendor-neutral infrastructure
-- Horizontally scalable workers
-- Open-source first
+- Integration First
+- Plugin First
+- OSS First
+- Stable SDK Interfaces
+- Event Driven Runtime
+- Configuration over Code
+- Vendor Neutral Infrastructure
+- Cloud Native
+- Kubernetes Native
+- Horizontal Scalability
 
-BRIXTA Core orchestrates the pipeline.
-
-Plugins perform the work.
-
-Repositories manage persistence.
-
-Infrastructure remains replaceable.
-
-Current interchangeable infrastructure includes:
-
-- Downloader Plugins
-- Parser Plugins
-- Chunker Plugins
-- Embedding Plugins
-- Storage Plugins
-- Artifact Backends (Local Filesystem / MinIO)
-
-Future infrastructure can be swapped without changing runtime logic:
-
-- Amazon S3
-- Cloudflare R2
-- DigitalOcean Spaces
-- Backblaze B2
-- Google Cloud Storage
-- Azure Blob Storage
-
-Only the backend implementation changes.
-
-The Runtime, SDK, Plugins, and Pipeline remain unchanged.
+> **Write the orchestration. Integrate the specialists.**
 
 ---
 
 # Runtime Architecture
 
+```text
+                  API Gateway
+                       │
+                       ▼
+                PipelineContext
+                       │
+                       ▼
+                 Celery Runtime
+                       │
+                       ▼
+                 Plugin Loader
+                       │
+ ┌──────────┬──────────┬──────────┬──────────┬──────────┐
+ ▼          ▼          ▼          ▼          ▼
+Downloader Parser   Chunker  Embedding  Storage
+ Plugin    Plugin    Plugin    Plugin    Plugin
+                       │
+                       ▼
+              Artifact Repository
+                       │
+                       ▼
+              Artifact Backend
+                 ┌─────────────┐
+                 ▼             ▼
+             Local FS       MinIO
+                       │
+                       ▼
+               PostgreSQL + pgvector
 ```
-                 API
-                  │
-                  ▼
-          PipelineContext
-                  │
-                  ▼
-               Runtime
-                  │
-     ┌────────────┼────────────┐
-     ▼            ▼            ▼
-JobRepository PluginLoader ArtifactRepository
-                                 │
-                                 ▼
-                         ArtifactBackend
-                         ┌──────────────┐
-                         ▼              ▼
-                  Local Filesystem   MinIO
-                                 │
-                                 ▼
-Downloader
-     ▼
-Parser
-     ▼
-Chunker
-     ▼
-Embedding
-     ▼
-Storage
+
+Each worker owns **one responsibility**.
+
+Every worker receives the same `PipelineContext`, enriches it, and forwards it to the next stage.
+
+---
+
+# 2. Mention Celery Queues
+
+Right now someone reading the README won't know workers are specialized.
+
+Add
+
+```text
+Queues
+
+gateway
+
+parser
+
+chunker
+
+embeddings
+
+storage
 ```
-
-The API only accepts requests.
-
-The Runtime owns:
-
-- Job lifecycle
-- Worker orchestration
-- Plugin execution
-- Artifact orchestration
-- Status transitions
-- Retry behaviour
-
-Each worker performs exactly one responsibility and passes a shared `PipelineContext` to the next stage.
-
-The Runtime never communicates directly with infrastructure providers.
-
-Instead, it depends on stable abstractions, allowing storage providers, plugins, and infrastructure components to be replaced through configuration rather than code changes.
 
 # Plugin Architecture
 
-Every processing stage is implemented as a plugin.
+Every processing stage is a plugin.
 
 ```text
 DownloaderPlugin
@@ -302,295 +475,169 @@ EmbeddingPlugin
 StoragePlugin
 ```
 
-BRIXTA Core depends only on SDK interfaces.
+Official plugins currently include:
 
-Concrete implementations are loaded dynamically through the `PluginLoader`.
-
-Current official plugins include:
-
-- Default Downloader
+- HTTP Downloader
 - Docling Parser
 - Hybrid Chunker
-- Nomic Embed v1.5
-- PostgreSQL + pgvector Storage
+- Sentence Transformers
+- pgvector Storage
 
-Future implementations can be added without modifying BRIXTA Core.
+Future plugins may include:
 
-Examples include:
-
-- Alternative Downloaders
-- Alternative Parsers
-- Alternative Chunkers
-- Alternative Embedding Models
+- OPC UA
+- MQTT
+- SAP
+- Tally
+- OCR Engines
+- Commercial LLMs
 - Alternative Vector Databases
-- Commercial AI Providers
-- Proprietary Enterprise Plugins
+- Enterprise Connectors
 
-The Runtime remains unchanged regardless of which plugins are selected.
+The Runtime never changes.
 
----
-
-# Pipeline Context
-
-Every stage receives the same immutable `PipelineContext`.
-
-```text
-Gateway
-    │
-    ▼
-PipelineContext
-    │
-    ▼
-Downloader
-    │
-    ▼
-PipelineContext
-    │
-    ▼
-Parser
-    │
-    ▼
-PipelineContext
-    │
-    ▼
-Chunker
-    │
-    ▼
-PipelineContext
-    │
-    ▼
-Embedding
-    │
-    ▼
-PipelineContext
-    │
-    ▼
-Storage
-```
-
-The context represents the complete state of a processing job.
-
-It carries:
-
-- Job Metadata
-- Source Information
-- Runtime Configuration
-- Generated Artifact References
-- Processing State
-- Future Plugin-specific Metadata
-
-Every worker enriches the same context before handing it to the next stage.
+Only plugins do.
 
 ---
 
 # Artifact Repository
 
-Every pipeline stage produces a permanent processing artifact.
+Every pipeline stage produces immutable artifacts.
 
 ```text
-Artifact Repository
-
 raw/
-    Downloaded documents
 
 docling/
-    Canonical DoclingDocument
 
 markdown/
-    Markdown representation
 
 chunks/
-    Semantic chunks
 
 embeddings/
-    Generated embedding vectors
 ```
 
-The Runtime never communicates directly with a storage provider.
+Artifacts make it possible to:
 
-Instead every stage interacts only with the `ArtifactRepository`.
-
-```text
-Downloader
-      │
-      ▼
-ArtifactRepository
-      │
-      ▼
-ArtifactBackend
-      │
- ┌────┴─────┐
- ▼          ▼
-LocalFS   MinIO
-```
-
-Current Artifact Backends
-
-- Local Filesystem
-- MinIO (S3 Compatible)
-
-Future Artifact Backends
-
-- Amazon S3
-- Cloudflare R2
-- DigitalOcean Spaces
-- Backblaze B2
-- Google Cloud Storage
-- Azure Blob Storage
-
-Artifacts enable:
-
-- Pipeline reproducibility
-- Independent debugging
-- Pipeline inspection
-- Incremental reprocessing
-- Model upgrades
-- Re-embedding without downloading documents again
-- Distributed object storage
-- Disaster recovery
-- Immutable processing history
-- Offline analysis
+- Resume pipelines
+- Inspect intermediate outputs
+- Re-embed documents
+- Upgrade embedding models
+- Debug every stage
+- Reprocess without downloading again
+- Support distributed object storage
 
 Only the Artifact Backend changes.
 
-The Runtime, Plugins, SDK, and Pipeline remain unchanged.
-
-PostgreSQL stores searchable knowledge.
-
-The Artifact Repository stores immutable processing artifacts.
+The Runtime and Plugins remain untouched.
 
 ---
 
-# Configuration-Driven Architecture
+# Configuration-Driven Platform
 
-Infrastructure is selected through configuration rather than hardcoded implementations.
+Everything is selected through configuration.
 
-Examples include:
+Examples:
 
-- Downloader Plugin
-- Parser Plugin
-- Chunking Plugin
-- Embedding Plugin
-- Storage Plugin
-- Artifact Backend
-- Logging
-- Message Broker
-- Future LLM Providers
+```env
+DOWNLOADER_PLUGIN=http
+PARSER_PLUGIN=docling
+CHUNKER_PLUGIN=hybrid
+EMBEDDING_PLUGIN=sentence-transformers
+EMBEDDING_MODEL=nomic-ai/nomic-embed-text-v1.5
+STORAGE_PLUGIN=pgvector
 
-Example:
-
-```text
-ARTIFACT_BACKEND=local
-```
-
-↓
-
-```text
 ARTIFACT_BACKEND=minio
+
+LOG_LEVEL=INFO
 ```
 
-No Runtime changes.
+Changing configuration changes behavior.
 
-No Plugin changes.
-
-No Pipeline changes.
-
-Only configuration changes.
-
-Development architecture:
-
-```text
-MacBook
-    │
-    ▼
-Docker
-    │
-    ├──────────────┐
-    ▼              ▼
-Redis          MinIO
-    │              │
-    └──────┬───────┘
-           ▼
-     Celery Runtime
-           │
-           ▼
-    Official Plugins
-```
-
-Production architecture:
-
-```text
-Kubernetes
-      │
-      ▼
-Redis
-      │
-      ▼
-Celery Runtime
-      │
-      ▼
-Plugin Loader
-      │
-      ▼
-Official Plugins
-      │
-      ▼
-Artifact Repository
-      │
-      ▼
-Artifact Backend
-      │
- ┌────┴──────────┐
- ▼               ▼
-MinIO       Future S3
-      │
-      ▼
-PostgreSQL + pgvector
-```
-
-Because the Runtime depends only on stable SDK interfaces and repository abstractions, BRIXTA can evolve from local development to distributed cloud deployments without changing business logic.
-
-New plugins, infrastructure providers, storage systems, and commercial services can be introduced through configuration rather than code changes.
+The Runtime remains identical.
 
 ---
 
-# Why Artifact Storage?
+# Production APIs
 
-BRIXTA intentionally preserves every intermediate processing artifact.
+```text
+/prod
 
-Rather than discarding the outputs of each stage, the pipeline stores them as immutable artifacts.
+├── health
+├── settings
+├── plugins
+│   ├── downloader
+│   ├── parser
+│   ├── chunker
+│   ├── embedding
+│   └── storage
+├── storage
+├── docker
+├── kubernetes
+├── celery
+├── redis
+└── environment
+```
 
-This enables:
-
-- Re-downloading only when necessary
-- Re-parsing without downloading again
-- Re-chunking without parsing again
-- Re-generating embeddings using newer models
-- Pipeline debugging at every stage
-- Offline inspection of processed documents
-- Dataset versioning
-- Pipeline reproducibility
-- Disaster recovery
-- Distributed object storage
-- Infrastructure portability
-
-The Artifact Repository preserves the complete processing history.
-
-PostgreSQL stores searchable vector knowledge.
-
-Together they separate **processing artifacts** from **retrieval data**, allowing each to evolve independently.
+These APIs power the BRIXTA Dashboard.
 
 ---
 
-## Development Commands
+# Development
 
-### Start Colima
+## Backend
+
+```bash
+uvicorn api.main:app --reload
+```
+
+```bash
+celery -A runtime.celery_app.celery worker --pool=solo --loglevel=info
+```
+
+## Dashboard
+
+```bash
+cd brixta-dashboard
+
+npm install
+
+npm run dev
+```
+
+---
+
+# Vision
+
+BRIXTA is evolving from an AI ingestion pipeline into a modular AI integration platform.
+
+Document ingestion is only the first workflow.
+
+Future capabilities include:
+
+- Industrial protocols
+- Enterprise ERP integrations
+- Knowledge synchronization
+- AI orchestration
+- Vector infrastructure
+- Plugin marketplace
+- Unified operations dashboard
+- Multi-tenant deployments
+- Cloud-native runtime
+# Development
+
+## Backend
+
+### Start Colima (macOS)
 
 ```bash
 colima start
 ```
 
-### Start Redis Container (First Time)
+---
+
+### Start Redis
+
+First time:
 
 ```bash
 docker run -d \
@@ -599,7 +646,17 @@ docker run -d \
   redis:7
 ```
 
-### Start MinIO Container (First Time)
+Existing container:
+
+```bash
+docker start brixta-redis
+```
+
+---
+
+### Start MinIO
+
+First time:
 
 ```bash
 docker run -d \
@@ -613,68 +670,46 @@ docker run -d \
   server /data --console-address ":9001"
 ```
 
-### Start Existing Redis Container
-
-```bash
-docker start brixta-redis
-```
-
-### Start Existing MinIO Container
+Existing container:
 
 ```bash
 docker start brixta-minio
 ```
 
-### Open MinIO Console
+---
 
-```text
-http://localhost:9001
-```
-
-Default Credentials
-
-```text
-Username: minioadmin
-Password: minioadmin
-```
-### Start Existing Redis Container
-
-```bash
-docker start brixta-redis
-```
-
-### Start Existing MinIO Container
-
-```bash
-docker start brixta-minio
-```
-
-### Verify Running Containers
+### Verify Containers
 
 ```bash
 docker ps
 ```
 
-### Open MinIO Console
+---
 
-```text
+### MinIO Console
+
+```
 http://localhost:9001
 ```
 
-Default Credentials
+Credentials
 
-```text
+```
 Username: minioadmin
 Password: minioadmin
 ```
 
-### Start FastAPI Gateway
+---
+
+### Start FastAPI
 
 ```bash
 uvicorn api.main:app --reload
 ```
 
-### Start Celery Worker (macOS Development)
+---
+
+### Start Celery (Development)
 
 ```bash
 celery -A runtime.celery_app.celery worker \
@@ -682,44 +717,56 @@ celery -A runtime.celery_app.celery worker \
     --loglevel=info
 ```
 
-### Start Celery Worker (Linux / Production)
+---
+
+### Start Celery (Linux / Production)
 
 ```bash
 celery -A runtime.celery_app.celery worker \
     --loglevel=info
 ```
 
-### Purge Pending Celery Tasks (Development)
+---
+
+### Purge Celery Queue
 
 ```bash
 celery -A runtime.celery_app.celery purge
 ```
 
-### Stop Redis
+---
+
+### Dashboard
+
+```bash
+cd brixta-dashboard
+
+npm install
+
+npm run dev
+```
+
+---
+
+### Stop Local Services
 
 ```bash
 docker stop brixta-redis
-```
-
-### Stop MinIO
-
-```bash
 docker stop brixta-minio
-```
-
-### Stop Colima
-
-```bash
 colima stop
 ```
 
-### Remove Stopped Containers & Cache
+---
+
+### Cleanup
+
+Containers
 
 ```bash
 docker system prune -f
 ```
 
-### Remove Everything (Images + Cache + Volumes)
+Everything
 
 ```bash
 docker system prune -a --volumes -f
@@ -727,61 +774,65 @@ docker system prune -a --volumes -f
 
 ---
 
-## Kubernetes Operations (K3s)
+# Kubernetes (K3s)
 
-The production environment is orchestrated using a lightweight **K3s Kubernetes** cluster with automated secret injection through the **Infisical Operator**.
+The production runtime is designed for Kubernetes using K3s.
+
+Secrets are managed through the Infisical Operator.
 
 ---
 
-### Start the Cluster
-
-Starts the K3s environment, applies all Kubernetes manifests from the `k8s/` directory, and synchronizes secrets using the Infisical Operator.
-
-The project is located inside:
-
-```text
-~/brresea/
-```
-
-Start the cluster:
+## Start Cluster
 
 ```bash
+cd ~/brresea
+
 ./start.sh
 ```
 
 ---
 
-### Check Cluster Status
-
-View the status of all running pods, deployments, and services.
-
-```bash
-kubectl get pods
-```
-
-For a more detailed overview:
+## Cluster Status
 
 ```bash
 kubectl get all
 ```
 
+Pods
+
+```bash
+kubectl get pods
+```
+
+Deployments
+
+```bash
+kubectl get deployments
+```
+
+Services
+
+```bash
+kubectl get svc
+```
+
 ---
 
-### View Application Logs
+## Logs
 
-#### FastAPI Gateway
+Gateway
 
 ```bash
 kubectl logs deployment/gateway -f
 ```
 
-#### Celery Worker (Light)
+Workers
 
 ```bash
 kubectl logs deployment/workers-light -f
 ```
 
-#### Embedding Worker
+Embedding Workers
 
 ```bash
 kubectl logs deployment/worker-embeddings -f
@@ -789,28 +840,23 @@ kubectl logs deployment/worker-embeddings -f
 
 ---
 
-### Restart Deployments
+## Restart Deployments
 
-Restart individual deployments:
+Gateway
 
 ```bash
 kubectl rollout restart deployment gateway
-kubectl rollout restart deployment workers-light
-kubectl rollout restart deployment worker-embeddings
 ```
 
-Or restart everything:
+Everything
 
 ```bash
-kubectl rollout restart deployment \
-    gateway \
-    workers-light \
-    worker-embeddings
+kubectl rollout restart deployment --all
 ```
 
 ---
 
-### Stop the Cluster
+## Stop Cluster
 
 ```bash
 kubectl delete -f k8s/
@@ -818,179 +864,135 @@ kubectl delete -f k8s/
 
 ---
 
-## Roadmap
+# Roadmap
 
-### Phase 1 — BRIXTA Core
+## Phase 1 — BRIXTA Core
 
-The open-source runtime powering the BRIXTA ecosystem.
-
-#### Architecture
-
-- [x] FastAPI API Runtime
-- [x] Celery Runtime
-- [x] Redis Message Broker
-- [x] Kubernetes (K3s) Deployment
-- [x] Plugin SDK
-- [x] PipelineContext
-- [x] Plugin Loader
-- [x] Official Plugin Architecture
-- [x] Artifact Repository
-- [x] Configuration-Driven Infrastructure
-
-#### Official Plugins
-
-- [x] Default Downloader
-- [x] Docling Parser
-- [x] HybridChunker
-- [x] Nomic Embed v1.5
-- [x] PostgreSQL + pgvector Storage
-
-#### Infrastructure
-
-- [x] Local Filesystem Artifact Backend
-- [x] MinIO (S3-Compatible) Artifact Backend
-
-#### Runtime Improvements
-
-- [ ] Dynamic Plugin Discovery
-- [ ] Plugin Configuration (`plugins.yaml`)
-- [ ] Retry Policies
-- [ ] Dead Letter Queues
-- [ ] Connection Pooling (`psycopg_pool`)
-- [ ] Metrics API
-- [ ] Prometheus Integration
-- [ ] Grafana Dashboards
-- [ ] OpenTelemetry Tracing
-- [ ] Horizontal Pod Autoscaling
-- [ ] KEDA Event Scaling
-### Phase 2 — BRIXTA Platform
-
-Hosted Vector Embeddings as a Service.
-
-- [ ] Authentication
-- [ ] Single Sign-On (SSO)
-- [ ] API Keys
-- [ ] Credits & Usage Metering
-- [ ] Billing
-- [ ] User Dashboard
-- [ ] Operations Dashboard
-- [ ] Organization & Team Workspaces
-- [ ] Multi-Tenant Runtime
-- [ ] REST API
-- [ ] Python SDK
-- [ ] JavaScript SDK
-- [ ] CLI
-
----
-
-### Phase 3 — BRIXTA Marketplace
-
-The OpenRouter for Vector Embeddings.
-
-- [ ] Plugin Registry
-- [ ] Plugin Installation
-- [ ] Plugin Updates
-- [ ] Plugin Versioning
-- [ ] Plugin Verification
-- [ ] Community Plugins
-- [ ] Commercial Plugins
-- [ ] Revenue Sharing
-- [ ] Plugin Marketplace
-
----
-
-### Phase 4 — BRIXTA Cloud
-
-Managed Infrastructure.
-
-- [ ] Distributed Worker Clusters
-- [ ] GPU Compute Pools
-- [ ] Autoscaling
-- [ ] Managed Object Storage
-- [ ] Distributed Artifact Repository
-- [ ] Global API
-- [ ] Multi-Region Deployment
-- [ ] Enterprise Management
-- [ ] Managed Observability
-
----
-
-### Phase 5 — BRIXTA Ecosystem
-
-Industry-specific embedding solutions built on BRIXTA Core.
-
-- [ ] Document Intelligence
-- [ ] Legal AI
-- [ ] Medical Knowledge
-- [ ] Financial Research
-- [ ] Geospatial Embeddings
-- [ ] Multimodal Embeddings
-- [ ] Image Search
-- [ ] Audio Embeddings
-- [ ] Video Embeddings
-- [ ] Scientific Knowledge Pipelines
-
----
-
-## Completed
+The plugin-driven orchestration engine.
 
 ### Runtime
 
-- [x] FastAPI API
+- [x] FastAPI Gateway
 - [x] Celery Runtime
 - [x] Redis Broker
-- [x] Kubernetes Deployment
-- [x] Plugin SDK
+- [x] PostgreSQL
+- [x] pgvector
 - [x] PipelineContext
+- [x] Job Repository
 - [x] Plugin Loader
-- [x] JobRepository
-- [x] Artifact Repository
-- [x] Artifact Backend Interface
-- [x] Configuration-driven Infrastructure
-- [x] Strongly Typed JobStatus
-- [x] Runtime-owned Job Lifecycle
-- [x] Automatic Task Retries
-- [x] Structured Runtime Logging
-- [x] Integration-First Architecture
-
-### Infrastructure
-
-- [x] Local Filesystem Artifact Backend
-- [x] MinIO Artifact Backend
-- [x] S3-Compatible Object Storage
-- [x] Immutable Processing Artifacts
+- [x] BRIXTA SDK
+- [x] Production APIs
 
 ### Official Plugins
 
-- [x] Default Downloader
+- [x] HTTP Downloader
 - [x] Docling Parser
-- [x] HybridChunker
-- [x] Nomic Embed v1.5
-- [x] PostgreSQL + pgvector Storage
+- [x] Hybrid Chunker
+- [x] Sentence Transformers
+- [x] pgvector Storage
 
-### Pipeline
+### Artifact System
 
-- [x] End-to-End Asynchronous Processing
-- [x] HTML / PDF Download
-- [x] Canonical DoclingDocument Generation
-- [x] Markdown Export
-- [x] Semantic Chunking
-- [x] Embedding Generation
-- [x] Vector Persistence
-- [x] Production Kubernetes Deployment
-- [x] Production Load Testing (k6)
+- [x] Artifact Repository
+- [x] Local Filesystem Backend
+- [x] MinIO Backend
 
-### Next
+### Infrastructure
 
-- [ ] Idempotent Artifact Processing
-- [ ] Dynamic Plugin Discovery
-- [ ] Plugin Configuration (`plugins.yaml`)
-- [ ] Redis Insight Integration
-- [ ] Flower Dashboard
-- [ ] Prometheus Metrics
-- [ ] Grafana Dashboards
-- [ ] Authentik / Keycloak SSO
-- [ ] Docker Compose
-- [ ] Amazon S3 Backend
-- [ ] Cloudflare R2 Backend
-- [ ] Plugin Marketplace
+- [x] Docker
+- [x] Kubernetes (K3s)
+- [x] Infisical
+- [x] Production Monitoring APIs
+
+---
+
+## Phase 2 — BRIXTA Dashboard
+
+Operations and management platform.
+
+- [ ] Authentication
+- [ ] Dashboard
+- [ ] Job Explorer
+- [ ] Plugin Manager
+- [ ] Storage Explorer
+- [ ] Runtime Monitoring
+- [ ] Docker Management
+- [ ] Kubernetes Management
+- [ ] Celery Monitoring
+- [ ] Redis Monitoring
+- [ ] MinIO Console Integration
+- [ ] Document Import
+- [ ] Embedding Export
+
+---
+
+## Phase 3 — BRIXTA Integrations
+
+Enterprise integrations built on the SDK.
+
+- [ ] OCR
+- [ ] OPC UA
+- [ ] MQTT
+- [ ] Modbus
+- [ ] SAP
+- [ ] Tally
+- [ ] S3
+- [ ] Cloudflare R2
+- [ ] Azure Blob
+- [ ] Google Cloud Storage
+- [ ] OpenAI
+- [ ] Ollama
+- [ ] vLLM
+
+---
+
+## Phase 4 — BRIXTA Marketplace
+
+Plugin ecosystem.
+
+- [ ] Plugin Registry
+- [ ] Plugin Installation
+- [ ] Version Management
+- [ ] Plugin Verification
+- [ ] Community Plugins
+- [ ] Commercial Plugins
+
+---
+
+## Phase 5 — BRIXTA Cloud
+
+Managed platform.
+
+- [ ] Multi-Tenant Runtime
+- [ ] Distributed Workers
+- [ ] Autoscaling
+- [ ] GPU Workers
+- [ ] Global API
+- [ ] Managed Object Storage
+- [ ] Hosted Vector Infrastructure
+- [ ] Enterprise Management
+
+---
+
+# Long-Term Vision
+
+BRIXTA is evolving into an open, plugin-driven AI integration platform.
+
+Instead of rebuilding mature technologies, BRIXTA orchestrates them through stable SDK interfaces.
+
+Future plugins will span:
+
+- Industrial Automation
+- Manufacturing
+- Enterprise ERP
+- Knowledge Management
+- AI Infrastructure
+- Vector Databases
+- LLM Providers
+- Storage Systems
+- Business Software
+- Research Pipelines
+
+The Runtime remains stable.
+
+The ecosystem grows through plugins.
