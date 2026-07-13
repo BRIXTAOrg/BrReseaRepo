@@ -33,9 +33,18 @@ jobs:
           env-slug: "prod" 
           secret-path: "/"
 
-      - name: Build and push Docker image
+      - name: Build and push PythonBackend image
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./Dockerfile
           push: true
           tags: goswamirohit/brresearepo:v5
+
+      - name: Build and push NextJsFrontend image
+        uses: docker/build-push-action@v6
+        with: 
+          context: .
+          file: ./brixta-dashboard/Dockerfile
+          push: true
+          tags: goswamirohit/brresearepo-dashboard:v1

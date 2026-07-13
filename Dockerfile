@@ -26,12 +26,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Copy dependencies file (Assuming requirements.txt exists at root)
-# If using pyproject.toml/poetry, adjust installation command here
+# Copy dependencies file
 COPY requirements.txt .
 ARG CACHE_DATE=1
 RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+    pip install -r requirements.txt \
+    pip install -r requirements-api.txt \
+    pip install -r requirements-workers.txt
 
 # ==========================================
 # Stage 3: Production Runner

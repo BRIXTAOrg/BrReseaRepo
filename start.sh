@@ -62,6 +62,7 @@ echo "Starting Gateway API and Task Workers..."
 kubectl apply -f k8s/gateway.yaml
 kubectl apply -f k8s/workers-light.yaml
 kubectl apply -f k8s/worker-embeddings.yaml
+kubectl apply -f k8s/dashboard.yaml
 
 # 8. Start Autoscalers
 echo "Configuring Autoscalers..."

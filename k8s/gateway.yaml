@@ -41,11 +41,10 @@ kind: Service
 metadata:
   name: gateway-service
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
     app: gateway
   ports:
     - protocol: TCP
       port: 80         # Internal cluster communication port
       targetPort: 8000   # Directs to your FastAPI application container port
-      nodePort: 32080    # The safe, open port you will use on your Tailscale host
