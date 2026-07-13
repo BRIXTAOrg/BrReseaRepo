@@ -1,0 +1,7 @@
+-r requirements-api.txt
+
+# Semantic query embeddings and the remote MCP transport are isolated from the
+# lightweight control plane so production can deploy them as a separate service.
+sentence-transformers>=3,<6
+einops>=0.7,<1
+fastmcp>=2,<3

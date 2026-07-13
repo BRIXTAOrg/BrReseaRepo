@@ -13,10 +13,9 @@ TASKS = {
 
 
 def pipeline_order(context: PipelineContext) -> list[str]:
-    order = context.config.get("pipeline_order", list(PLUGIN_STAGES))
-    if sorted(order) != sorted(PLUGIN_STAGES) or order[0] != "downloader" or order[-1] != "storage":
-        raise ValueError("Pipeline order must contain every stage exactly once, begin with downloader, and end with storage.")
-    return order
+    # Stage order is part of the runtime contract. Plugins are replaceable,
+    # but reordering stages can feed the wrong artifact type into a plugin.
+    return list(PLUGIN_STAGES)
 
 
 def dispatch_next(context: PipelineContext, current_stage: str) -> str | None:

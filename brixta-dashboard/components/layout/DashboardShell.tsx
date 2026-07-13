@@ -12,7 +12,7 @@ export default function DashboardShell({
   children,
 }: DashboardShellProps) {
   return (
-    <div className="flex h-screen bg-background">
+    <div className="flex h-screen bg-muted/25">
 
       <Sidebar />
 
@@ -20,7 +20,7 @@ export default function DashboardShell({
 
         <Navbar />
 
-        <div className="flex-1 overflow-auto p-8">
+        <div className="flex-1 overflow-auto">
           {children}
         </div>
 

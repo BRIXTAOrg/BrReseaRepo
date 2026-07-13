@@ -1,30 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
+import { Database, RefreshCw } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requestPythonApi } from "@/lib/api";
+import type { Job } from "@/types/types";
 
-export interface Job {
-  id: string;
-  source_type: string;
-  source_target: string;
-  tenant_id: string;
-  status: string;
-  error?: string;
-  current_stage?: string;
-  attempt_count: number;
-  max_attempts: number;
-  retry_count: number;
-  max_job_runs: number;
-  retryable: boolean;
-  terminal: boolean;
-  can_retry: boolean;
-  created_at?: string;
-  updated_at?: string;
-  parent_job_id?: string;
-}
+export type { Job } from "@/types/types";
 
 export default function JobHistory({ initialJobs, initialError }: { initialJobs: Job[]; initialError?: string }) {
   const [jobs, setJobs] = useState(initialJobs);
@@ -36,6 +21,11 @@ export default function JobHistory({ initialJobs, initialError }: { initialJobs:
     setJobs(result.jobs || []);
     setMessage(result.error || "");
   }
+
+  useEffect(() => {
+    const timer = window.setInterval(() => void refresh(), 5_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   async function retry(job: Job) {
     setBusy(job.id);
@@ -75,11 +65,19 @@ export default function JobHistory({ initialJobs, initialError }: { initialJobs:
             </div>
             <div className="flex items-start gap-2">
               <Badge variant={job.status === "completed" ? "default" : job.status === "failed" ? "destructive" : "secondary"}>{job.status}</Badge>
+              {job.status === "completed" && (
+                <Button size="sm" variant="outline" render={<Link href={`/knowledge/${job.id}`} />}>
+                  <Database size={14} /> Knowledge
+                </Button>
+              )}
               {job.can_retry && <Button size="sm" variant="outline" onClick={() => retry(job)} disabled={busy === job.id}>{busy === job.id ? "Retrying…" : "Retry"}</Button>}
             </div>
           </div>
         ))}
         {jobs.length === 0 && <p className="text-muted-foreground">No persisted jobs.</p>}
+        <Button size="sm" variant="ghost" type="button" onClick={() => void refresh()}>
+          <RefreshCw size={14} /> Refresh now
+        </Button>
       </CardContent>
     </Card>
   );

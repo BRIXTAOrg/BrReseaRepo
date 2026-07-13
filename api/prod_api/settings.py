@@ -9,7 +9,7 @@ from runtime.artifacts.repository import ArtifactRepository
 
 from api.prod_api.models import RuntimeSettings
 from pydantic import BaseModel, Field
-from core.plugin_loader import registry
+from core.plugin_loader import PLUGIN_STAGES, registry
 from runtime.settings import RuntimeSettingsRepository
 from api.prod_api.health import database as database_health
 from api.prod_api.queues import broker_health
@@ -93,14 +93,22 @@ def desired() -> dict:
         default_plugins=registry.validate_selection({}),
         embedding_model=EMBEDDING_MODEL,
     ).model_dump()
-    saved = {**defaults, **saved, "default_plugins": {**defaults["default_plugins"], **saved.get("default_plugins", {})}}
+    saved = {
+        **defaults,
+        **saved,
+        "default_plugins": {
+            **defaults["default_plugins"],
+            **saved.get("default_plugins", {}),
+        },
+        # Pipeline order is a runtime invariant, not a user preference.
+        "pipeline_order": list(PLUGIN_STAGES),
+    }
     return {"settings": saved, "active": runtime().model_dump(), "restart_required": saved.get("artifact_backend") != ARTIFACT_BACKEND}
 
 
 def save_desired(payload: DesiredRuntimeSettings) -> dict:
     data = payload.model_dump()
     data["default_plugins"] = registry.validate_selection(data["default_plugins"])
-    if sorted(data["pipeline_order"]) != ["chunker", "downloader", "embedding", "parser", "storage"] or data["pipeline_order"][0] != "downloader" or data["pipeline_order"][-1] != "storage":
-        raise ValueError("Pipeline order must contain every stage exactly once, begin with downloader, and end with storage.")
+    data["pipeline_order"] = list(PLUGIN_STAGES)
     RuntimeSettingsRepository.save(data)
     return {"settings": data, "active": runtime().model_dump(), "restart_required": data["artifact_backend"] != ARTIFACT_BACKEND, "message": "Settings saved to the control-plane runtime environment. Restart BRIXTA Core and workers to apply infrastructure changes."}

@@ -65,7 +65,7 @@ async def ingest(
         source_type="url",
         source_target=str(request.source_url),
         plugins={**RuntimeSettingsRepository.get().get("default_plugins", {}), **request.plugins},
-        config={"embedding_model": RuntimeSettingsRepository.get().get("embedding_model", "nomic-ai/nomic-embed-text-v1.5"), "pipeline_order": RuntimeSettingsRepository.get().get("pipeline_order", list(PLUGIN_STAGES)), **request.config},
+        config={"embedding_model": RuntimeSettingsRepository.get().get("embedding_model", "nomic-ai/nomic-embed-text-v1.5"), **request.config},
     )
 
     try:

@@ -32,6 +32,49 @@ export interface IngestionResponse {
   plugins: Record<PluginStage, string>;
 }
 
+export interface Job {
+  id: string;
+  source_type: string;
+  source_target: string;
+  tenant_id: string;
+  status: string;
+  error?: string;
+  current_stage?: string;
+  attempt_count: number;
+  max_attempts: number;
+  retry_count: number;
+  max_job_runs: number;
+  retryable: boolean;
+  terminal: boolean;
+  can_retry: boolean;
+  created_at?: string;
+  updated_at?: string;
+  completed_at?: string;
+  parent_job_id?: string;
+}
+
+export interface KnowledgeBase {
+  id: string;
+  uri: string;
+  name: string;
+  tenant_id: string;
+  source_type: string;
+  source_target: string;
+  status: string;
+  ready: boolean;
+  chunk_count: number;
+  embedding_model: string;
+  embedding_dimension: number;
+  completed_at?: string;
+  dashboard_url: string;
+  manifest_url: string;
+  retrieval_url: string;
+  mcp_url: string;
+  mcp_scope: { knowledge_base_id: string };
+  mcp_command: string;
+  chatgpt_ready: boolean;
+}
+
 export interface SourceDefinition {
   id: string;
   name: string;

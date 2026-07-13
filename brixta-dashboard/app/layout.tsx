@@ -3,6 +3,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ReactNode } from "react";
+import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
 // This automatically injects the <title> and <meta name="description"> 
 // into your HTML head for better SEO and browser tab rendering.
@@ -24,8 +25,8 @@ export default function RootLayout({
         min-h-screen: Ensures the body always fills the monitor 
         bg-background text-foreground: Hooks into your Tailwind/shadcn color variables
       */}
-      <body className="antialiased min-h-screen bg-background text-foreground">
-        {children}
+      <body className="min-h-screen bg-background text-foreground antialiased">
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
   );

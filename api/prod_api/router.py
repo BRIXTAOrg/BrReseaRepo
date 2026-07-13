@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------
 # Storage
@@ -57,6 +58,7 @@ from api.prod_api.kubernetes import (
     list_deployments,
     pod_logs,
     restart_deployment,
+    restart_pod,
 )
 
 # ---------------------------------------------------------------------
@@ -92,6 +94,18 @@ from api.prod_api.docker import (
 )
 from runtime.jobs.repository import JobRepository
 from runtime.jobs.service import JobRetryError, retry_failed_job
+from runtime.knowledge import (
+    KnowledgeBaseError,
+    describe_knowledge_base,
+    fetch_chunk,
+    list_knowledge_bases,
+    search_knowledge_base,
+)
+
+
+class KnowledgeSearchRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=4000)
+    limit: int = Field(default=5, ge=1, le=20)
 
 router = APIRouter()
 
@@ -104,6 +118,20 @@ def ingestion_jobs(limit: int = 100, tenant_id: str | None = None):
         return {"jobs": [], "error": str(exc)}
 
 
+@router.get("/jobs/{job_id}")
+def ingestion_job(job_id: str):
+    job = JobRepository.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found.")
+    response = {"job": job}
+    if job["status"] == "completed":
+        try:
+            response["knowledge_base"] = describe_knowledge_base(job_id)
+        except KnowledgeBaseError:
+            pass
+    return response
+
+
 @router.post("/jobs/{job_id}/retry")
 def retry_ingestion_job(job_id: str):
     try:
@@ -112,6 +140,52 @@ def retry_ingestion_job(job_id: str):
         message = str(exc)
         status_code = 404 if message == "Job not found." else 409
         raise HTTPException(status_code=status_code, detail=message) from exc
+
+
+# =====================================================================
+# Knowledge bases and semantic retrieval
+# =====================================================================
+
+@router.get("/knowledge")
+def knowledge_bases(limit: int = 100, tenant_id: str | None = None):
+    return {
+        "knowledge_bases": list_knowledge_bases(
+            tenant_id=tenant_id,
+            limit=limit,
+        )
+    }
+
+
+@router.get("/knowledge/{job_id}")
+def knowledge_base(job_id: str):
+    try:
+        return {"knowledge_base": describe_knowledge_base(job_id)}
+    except KnowledgeBaseError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/knowledge/{job_id}/search")
+def knowledge_search(job_id: str, payload: KnowledgeSearchRequest):
+    try:
+        return {
+            "knowledge_base_id": job_id,
+            "query": payload.query,
+            "results": search_knowledge_base(
+                job_id,
+                payload.query,
+                limit=payload.limit,
+            ),
+        }
+    except KnowledgeBaseError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+
+@router.get("/knowledge/{job_id}/chunks/{chunk_index}")
+def knowledge_chunk(job_id: str, chunk_index: int):
+    try:
+        return fetch_chunk(f"{job_id}:{chunk_index}", knowledge_base_id=job_id)
+    except KnowledgeBaseError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 from api.prod_api.plugins import (
     embedding_plugins,
@@ -258,6 +332,11 @@ def kubernetes_pod_logs(namespace: str, name: str, tail: int = 200):
 @router.post("/kubernetes/deployments/{namespace}/{name}/restart")
 def kubernetes_restart_deployment(namespace: str, name: str):
     return restart_deployment(namespace, name)
+
+
+@router.post("/kubernetes/pods/{namespace}/{name}/restart")
+def kubernetes_restart_pod(namespace: str, name: str):
+    return restart_pod(namespace, name)
 
 
 # =====================================================================

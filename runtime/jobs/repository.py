@@ -78,9 +78,11 @@ class JobRepository:
                 cur.execute(
                     """
                     SELECT
-                        id, status, error_log, terminal, retryable, retry_count,
-                        context_json, parent_job_id, current_stage,
-                        attempt_count, max_attempts
+                        id, source_type, source_target, tenant_id,
+                        status, error_log, created_at, updated_at,
+                        started_at, completed_at, current_stage, celery_task_id,
+                        attempt_count, max_attempts, terminal, retryable,
+                        retry_count, parent_job_id, context_json
                     FROM "BrResearch".ingestion_jobs
                     WHERE id = %s
                     """,
@@ -89,18 +91,36 @@ class JobRepository:
                 row = cur.fetchone()
         if row is None:
             return None
+        retry_count = row[16]
+        has_context = row[18] is not None
         return {
             "id": str(row[0]),
-            "status": row[1],
-            "error": row[2],
-            "terminal": row[3],
-            "retryable": row[4],
-            "retry_count": row[5],
-            "context": row[6],
-            "parent_job_id": str(row[7]) if row[7] else None,
-            "current_stage": row[8],
-            "attempt_count": row[9],
-            "max_attempts": row[10],
+            "source_type": row[1],
+            "source_target": row[2],
+            "tenant_id": row[3],
+            "status": row[4],
+            "error": row[5],
+            "created_at": row[6].isoformat() if row[6] else None,
+            "updated_at": row[7].isoformat() if row[7] else None,
+            "started_at": row[8].isoformat() if row[8] else None,
+            "completed_at": row[9].isoformat() if row[9] else None,
+            "current_stage": row[10],
+            "celery_task_id": row[11],
+            "attempt_count": row[12],
+            "max_attempts": row[13],
+            "terminal": row[14],
+            "retryable": row[15],
+            "retry_count": retry_count,
+            "max_job_runs": MAX_JOB_RUNS,
+            "parent_job_id": str(row[17]) if row[17] else None,
+            "context": row[18],
+            "can_retry": bool(
+                row[4] == JobStatus.FAILED.value
+                and row[14]
+                and row[15]
+                and has_context
+                and retry_count < MAX_JOB_RUNS - 1
+            ),
         }
 
     @staticmethod

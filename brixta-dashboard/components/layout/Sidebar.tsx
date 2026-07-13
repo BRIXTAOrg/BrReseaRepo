@@ -16,6 +16,7 @@ import {
   Globe2,
   Store,
   BookOpen,
+  BrainCircuit,
 } from "lucide-react";
 
 const sections = [
@@ -36,6 +37,11 @@ const sections = [
         name: "Sources & Schedules",
         href: "/sources",
         icon: Globe2,
+      },
+      {
+        name: "Knowledge Bases",
+        href: "/knowledge",
+        icon: BrainCircuit,
       },
       {
         name: "Plugins",

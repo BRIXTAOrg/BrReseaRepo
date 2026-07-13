@@ -7,7 +7,6 @@ from brixta_sdk.context import PipelineContext
 from core.plugin_loader import registry
 from runtime.celery_app import celery
 from runtime.sources.repository import SourceRepository
-from runtime.settings import RuntimeSettingsRepository
 from runtime.jobs.repository import JobRepository
 
 
@@ -18,7 +17,7 @@ def enqueue_source(source: dict) -> dict:
         source_type="url",
         source_target=source["start_url"],
         plugins=registry.validate_selection(source.get("plugins", {})),
-        config={"pipeline_order": RuntimeSettingsRepository.get().get("pipeline_order", ["downloader", "parser", "chunker", "embedding", "storage"]), **source.get("config", {})},
+        config={**source.get("config", {})},
         metadata={"source_id": source["id"], "crawl_strategy": source["crawl_strategy"]},
     )
     JobRepository.create(context)

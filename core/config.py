@@ -56,6 +56,21 @@ ORPHAN_TIMEOUT_SECONDS = max(
 )
 MAX_JOB_RUNS = max(1, int(os.getenv("MAX_JOB_RUNS", "3")))
 
+# Public URLs are returned in knowledge manifests. Local defaults are useful for
+# development; production deployments should set HTTPS URLs explicitly.
+BRIXTA_API_PUBLIC_URL = os.getenv(
+    "BRIXTA_API_PUBLIC_URL",
+    "http://localhost:8000",
+).rstrip("/")
+BRIXTA_DASHBOARD_PUBLIC_URL = os.getenv(
+    "BRIXTA_DASHBOARD_PUBLIC_URL",
+    "http://localhost:3000",
+).rstrip("/")
+BRIXTA_MCP_PUBLIC_URL = os.getenv(
+    "BRIXTA_MCP_PUBLIC_URL",
+    "http://localhost:8001/mcp",
+).rstrip("/")
+
 #----------------------------------------------------------------------
 #Artifact
 #----------------------------------------------------------------------

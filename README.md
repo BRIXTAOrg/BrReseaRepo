@@ -361,7 +361,7 @@ The current `document_chunks.embedding` column is an unconstrained pgvector `vec
 ### 6. Start the API
 
 ```bash
-uvicorn api.main:app --reload
+python3 -m uvicorn api.main:app --reload
 ```
 
 API documentation is available at `http://127.0.0.1:8000/docs`.

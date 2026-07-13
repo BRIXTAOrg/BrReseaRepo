@@ -49,11 +49,14 @@ def cluster_health() -> dict:
     """
 
     try:
-        api().get_api_resources()
+        core = api()
+        core.get_api_resources()
+        version = client.VersionApi(api_client=core.api_client).get_code()
 
         return {
             "provider": "kubernetes",
             "healthy": True,
+            "version": getattr(version, "git_version", None),
         }
 
     except Exception as e:
@@ -76,15 +79,28 @@ def list_pods() -> dict:
     )
 
     return {
-        "pods": [
-            {
-                "name": pod.metadata.name,
-                "namespace": pod.metadata.namespace,
-                "status": pod.status.phase,
-                "node": pod.spec.node_name,
-            }
-            for pod in (pods.items or [])
-        ]
+        "pods": [_pod_dict(pod) for pod in (pods.items or [])]
+    }
+
+
+def _pod_dict(pod) -> dict:
+    statuses = pod.status.container_statuses or []
+    return {
+        "name": pod.metadata.name,
+        "namespace": pod.metadata.namespace,
+        "status": pod.status.phase,
+        "node": pod.spec.node_name,
+        "ready": bool(statuses) and all(item.ready for item in statuses),
+        "restarts": sum(item.restart_count or 0 for item in statuses),
+        "containers": [
+            {"name": container.name, "image": container.image}
+            for container in (pod.spec.containers or [])
+        ],
+        "created_at": (
+            pod.metadata.creation_timestamp.isoformat()
+            if pod.metadata.creation_timestamp
+            else None
+        ),
     }
 
 
@@ -99,15 +115,25 @@ def list_deployments() -> dict:
     )
 
     return {
-        "deployments": [
-            {
-                "name": deployment.metadata.name,
-                "namespace": deployment.metadata.namespace,
-                "replicas": deployment.spec.replicas,
-                "available": deployment.status.available_replicas or 0,
-            }
-            for deployment in (deployments.items or [])
-        ]
+        "deployments": [_deployment_dict(item) for item in (deployments.items or [])]
+    }
+
+
+def _deployment_dict(deployment) -> dict:
+    desired = deployment.spec.replicas or 0
+    available = deployment.status.available_replicas or 0
+    return {
+        "name": deployment.metadata.name,
+        "namespace": deployment.metadata.namespace,
+        "replicas": desired,
+        "available": available,
+        "updated": deployment.status.updated_replicas or 0,
+        "unavailable": deployment.status.unavailable_replicas or 0,
+        "ready": desired == available,
+        "images": [
+            container.image
+            for container in (deployment.spec.template.spec.containers or [])
+        ],
     }
 
 
@@ -123,3 +149,18 @@ def restart_deployment(namespace: str, name: str) -> dict:
     body = {"spec": {"template": {"metadata": {"annotations": {"brixta.io/restartedAt": restarted_at}}}}}
     apps().patch_namespaced_deployment(name=name, namespace=namespace, body=body)
     return {"namespace": namespace, "deployment": name, "status": "restart_requested", "restarted_at": restarted_at}
+
+
+def restart_pod(namespace: str, name: str) -> dict:
+    """Delete a pod so its owning controller creates a replacement."""
+    load_config()
+    api().delete_namespaced_pod(
+        name=name,
+        namespace=namespace,
+        grace_period_seconds=30,
+    )
+    return {
+        "namespace": namespace,
+        "pod": name,
+        "status": "replacement_requested",
+    }
