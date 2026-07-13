@@ -28,6 +28,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 # Copy dependencies file
 COPY requirements.txt .
+COPY requirements-api.txt .
+COPY requirements-workers.txt .
 ARG CACHE_DATE=1
 RUN pip install --upgrade pip && \
     pip install -r requirements.txt \
