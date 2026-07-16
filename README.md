@@ -53,7 +53,7 @@ This README describes the repository as it exists now. Labels have precise meani
 | Dashboard | Implemented prototype | Operational pages exist. Authentication and authorization are not enabled. Do not expose Docker controls or tenant APIs publicly. |
 | CalculiX simulation | Implemented preview + solver path | Deterministic structural coupon pack. Solver mode requires the dedicated worker image. |
 | OpenFOAM simulation | Implemented preview + solver path | Deterministic channel-flow case compiler. JSON is compiled into an OpenFOAM case; OpenFOAM does not open the JSON directly. |
-| Kubernetes manifests | Deployment skeleton | Useful foundation, not a finished secure production platform. Several gaps are listed in [Production readiness gates](../Downloads/README(2).md#production-readiness-gates). |
+| Kubernetes manifests | Deployment skeleton | Useful foundation, not a finished secure production platform. Several gaps are listed in [Production readiness gates](#production-readiness-gates). |
 
 ### Production readiness gates
 
@@ -76,37 +76,37 @@ Do not call the current checkout production-ready until these are addressed:
 
 ## Table of contents
 
-- [Product model](../Downloads/README(2).md#product-model)
-- [System architecture](../Downloads/README(2).md#system-architecture)
-- [Repository map](../Downloads/README(2).md#repository-map)
-- [Requirements](../Downloads/README(2).md#requirements)
-- [BRIXTA Python package](../Downloads/README(2).md#brixta-python-package)
-- [Security first](../Downloads/README(2).md#security-first)
-- [Environment configuration](../Downloads/README(2).md#environment-configuration)
-- [Local installation](../Downloads/README(2).md#local-installation)
-- [Starting the complete local stack](../Downloads/README(2).md#starting-the-complete-local-stack)
-- [Ingestion and knowledge lifecycle](../Downloads/README(2).md#ingestion-and-knowledge-lifecycle)
-- [Plugin system](../Downloads/README(2).md#plugin-system)
-- [Sources, crawling, and schedules](../Downloads/README(2).md#sources-crawling-and-schedules)
-- [Celery runtime, retries, and recovery](../Downloads/README(2).md#celery-runtime-retries-and-recovery)
-- [PostgreSQL, Neon, and pgvector](../Downloads/README(2).md#postgresql-neon-and-pgvector)
-- [Artifacts and MinIO](../Downloads/README(2).md#artifacts-and-minio)
-- [API reference](../Downloads/README(2).md#api-reference)
-- [Dashboard](../Downloads/README(2).md#dashboard)
-- [MCP and AI-client integration](../Downloads/README(2).md#mcp-and-ai-client-integration)
-- [CLI reference](../Downloads/README(2).md#cli-reference)
-- [Simulation Lab](../Downloads/README(2).md#simulation-lab)
-- [Docker images](../Downloads/README(2).md#docker-images)
-- [Kubernetes deployment](../Downloads/README(2).md#kubernetes-deployment)
-- [Infisical and `start.sh`](../Downloads/README(2).md#infisical-and-startsh)
-- [GitHub Actions and releases](../Downloads/README(2).md#github-actions-and-releases)
-- [Testing](../Downloads/README(2).md#testing)
-- [Troubleshooting](../Downloads/README(2).md#troubleshooting)
-- [How to extend or remove components](../Downloads/README(2).md#how-to-extend-or-remove-components)
-- [Strengths, weaknesses, and roadmap](../Downloads/README(2).md#strengths-weaknesses-and-roadmap)
-- [When to split the monorepo](../Downloads/README(2).md#when-to-split-the-monorepo)
-- [Contributing](../Downloads/README(2).md#contributing)
-- [Glossary](../Downloads/README(2).md#glossary)
+- [Product model](#product-model)
+- [System architecture](#system-architecture)
+- [Repository map](#repository-map)
+- [Requirements](#requirements)
+- [BRIXTA Python package](#brixta-python-package)
+- [Security first](#security-first)
+- [Environment configuration](#environment-configuration)
+- [Local installation](#local-installation)
+- [Starting the complete local stack](#starting-the-complete-local-stack)
+- [Ingestion and knowledge lifecycle](#ingestion-and-knowledge-lifecycle)
+- [Plugin system](#plugin-system)
+- [Sources, crawling, and schedules](#sources-crawling-and-schedules)
+- [Celery runtime, retries, and recovery](#celery-runtime-retries-and-recovery)
+- [PostgreSQL, Neon, and pgvector](#postgresql-neon-and-pgvector)
+- [Artifacts and MinIO](#artifacts-and-minio)
+- [API reference](#api-reference)
+- [Dashboard](#dashboard)
+- [MCP and AI-client integration](#mcp-and-ai-client-integration)
+- [CLI reference](#cli-reference)
+- [Simulation Lab](#simulation-lab)
+- [Docker images](#docker-images)
+- [Kubernetes deployment](#kubernetes-deployment)
+- [Infisical and `start.sh`](#infisical-and-startsh)
+- [GitHub Actions and releases](#github-actions-and-releases)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [How to extend or remove components](#how-to-extend-or-remove-components)
+- [Strengths, weaknesses, and roadmap](#strengths-weaknesses-and-roadmap)
+- [When to split the monorepo](#when-to-split-the-monorepo)
+- [Contributing](#contributing)
+- [Glossary](#glossary)
 
 ---
 
@@ -602,7 +602,7 @@ Do not copy that example unreviewed: select tested version bounds, avoid self-re
 
 ### Release the package to GitHub
 
-The detailed build checks appear in [GitHub Actions and releases](../Downloads/README(2).md#github-actions-and-releases). The short operator sequence is:
+The detailed build checks appear in [GitHub Actions and releases](#github-actions-and-releases). The short operator sequence is:
 
 ```bash
 # clean checkout and supported Python
@@ -2672,7 +2672,7 @@ A change is done only when:
 
 ### Production
 
-- [ ] All [Production readiness gates](../Downloads/README(2).md#production-readiness-gates) closed.
+- [ ] All [Production readiness gates](#production-readiness-gates) closed.
 - [ ] Fresh and upgrade database migrations pass.
 - [ ] OIDC/RBAC/tenant enforcement/RLS tested.
 - [ ] Stable TLS API/dashboard/MCP domains configured.
@@ -2683,6 +2683,6 @@ A change is done only when:
 - [ ] Scheduler exactly once; all required queues have workers.
 - [ ] Logs/metrics/traces/alerts/audit and SLOs active.
 - [ ] ChatGPT developer/published connection tested without Quick Tunnel.
-- [ ] Rollback and incident runbooks exercised.
+- [ ] Rollback and incident runbooks exercised
 
 BRIXTA becomes powerful by preserving these boundaries: **integrations are replaceable, contracts are stable, state is durable, tenant access is explicit, and automation never bypasses validation.**
