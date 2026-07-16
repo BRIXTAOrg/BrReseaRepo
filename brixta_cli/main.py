@@ -6,6 +6,7 @@ import argparse
 import os
 import signal
 import sys
+import time
 from typing import Any
 
 
@@ -39,6 +40,19 @@ def parser() -> argparse.ArgumentParser:
         help="Stop locally managed MCP/tunnel processes.",
     )
 
+    connection = commands.add_parser(
+        "connection",
+        help="Inspect the locally managed connection.",
+    )
+    connection_commands = connection.add_subparsers(
+        dest="connection_command",
+        required=True,
+    )
+    connection_commands.add_parser(
+        "status",
+        help="Show saved and live MCP/tunnel state.",
+    )
+
     knowledge = commands.add_parser(
         "knowledge",
         help="Inspect and search knowledge bases.",
@@ -58,19 +72,54 @@ def parser() -> argparse.ArgumentParser:
     return root
 
 
-def _stop_managed_processes(state: dict[str, Any]) -> None:
-    for key in ("mcp_pid", "tunnel_pid", "tunnel_client_pid"):
-        value = state.get(key)
-        if not isinstance(value, (int, str)):
-            continue
+def _coerce_pid(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        process_id = value
+    elif isinstance(value, str):
         try:
-            pid = int(value)
+            process_id = int(value)
         except ValueError:
-            continue
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            pass
+            return None
+    else:
+        return None
+    return process_id if process_id > 0 else None
+
+
+def _pid_alive(process_id: int) -> bool:
+    try:
+        os.kill(process_id, 0)
+        return True
+    except (OSError, OverflowError):
+        return False
+
+
+def _stop_pid(process_id: int, timeout: float = 5) -> None:
+    if not _pid_alive(process_id):
+        return
+    try:
+        os.kill(process_id, signal.SIGTERM)
+    except ProcessLookupError:
+        return
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if not _pid_alive(process_id):
+            return
+        time.sleep(0.1)
+    try:
+        os.kill(process_id, signal.SIGKILL)
+    except ProcessLookupError:
+        pass
+
+
+def _stop_managed_processes(state: dict[str, Any]) -> None:
+    # Stop the public connector before the origin to avoid new in-flight work.
+    for key in ("tunnel_pid", "tunnel_client_pid", "mcp_pid"):
+        process_id = _coerce_pid(state.get(key))
+        if process_id is not None:
+            _stop_pid(process_id)
 
 
 def main() -> int:
@@ -109,11 +158,17 @@ def main() -> int:
             return connect_production(open_browser=not args.no_browser)
 
         if args.command == "disconnect":
-            from brixta_cli.config import load_state
+            from brixta_cli.config import clear_state, load_state
 
             _stop_managed_processes(load_state())
+            clear_state()
             print("✓ Local BRIXTA connection stopped")
             return 0
+
+        if args.command == "connection":
+            from brixta_cli.connect import connection_status_command
+
+            return connection_status_command()
 
         if args.command == "knowledge":
             if args.knowledge_command == "list":
@@ -131,6 +186,13 @@ def main() -> int:
             )
 
         raise RuntimeError(f"Unsupported command: {args.command}")
+    except KeyboardInterrupt:
+        print(
+            "\nInterrupted. Run `brixta disconnect` to stop any managed "
+            "processes that already started.",
+            file=sys.stderr,
+        )
+        return 130
     except (RuntimeError, PermissionError, ValueError) as exc:
         print(f"✗ {exc}", file=sys.stderr)
         return 1

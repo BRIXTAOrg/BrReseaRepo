@@ -1,7 +1,3 @@
-import json
-import os
-from pathlib import Path
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
@@ -84,6 +80,7 @@ from runtime.knowledge import (
     list_knowledge_bases,
     search_knowledge_base,
 )
+from runtime.integrations import chatgpt_connection_status, chatgpt_handoff
 
 
 class KnowledgeSearchRequest(BaseModel):
@@ -209,62 +206,43 @@ def update_knowledge_access(job_id: str, payload: KnowledgeAccessRequest):
     return {"knowledge_base_id": job_id, "enabled": enabled}
 
 
+@router.get("/knowledge/{job_id}/chatgpt-connection")
+def knowledge_chatgpt_connection(job_id: str):
+    """Return a user-facing handoff without pretending ChatGPT is linked."""
+    try:
+        manifest = describe_knowledge_base(job_id)
+    except KnowledgeBaseError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    enabled = KnowledgeAccessRepository.is_enabled(manifest["tenant_id"], job_id)
+    return chatgpt_handoff(
+        knowledge_base_id=job_id,
+        tenant_id=manifest["tenant_id"],
+        access_enabled=enabled,
+    )
+
+
+@router.post("/knowledge/{job_id}/chatgpt-connection")
+def prepare_knowledge_chatgpt_connection(job_id: str):
+    """Enable one knowledge base and prepare the shared ChatGPT handoff."""
+    try:
+        manifest = describe_knowledge_base(job_id)
+    except KnowledgeBaseError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    enabled = KnowledgeAccessRepository.set_enabled(
+        manifest["tenant_id"],
+        job_id,
+        True,
+    )
+    return chatgpt_handoff(
+        knowledge_base_id=job_id,
+        tenant_id=manifest["tenant_id"],
+        access_enabled=enabled,
+    )
+
+
 @router.get("/mcp/status")
 def mcp_status():
-    state_path = Path(".brixta/connection.json")
-    state = {}
-    if state_path.exists():
-        try:
-            state = json.loads(state_path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            state = {}
-    def process_alive(pid: object) -> bool:
-        if isinstance(pid, bool):
-            return False
-
-        if isinstance(pid, int):
-            process_id = pid
-        elif isinstance(pid, str):
-            try:
-                process_id = int(pid)
-            except ValueError:
-                return False
-        else:
-            return False
-
-        # PID zero and negative PIDs address process groups rather than one
-        # BRIXTA-managed process, so they must never be probed here.
-        if process_id <= 0:
-            return False
-
-        try:
-            os.kill(process_id, 0)
-            return True
-        except (OSError, OverflowError):
-            return False
-
-    mcp_alive = process_alive(state.get("mcp_pid"))
-    tunnel_alive = process_alive(state.get("tunnel_pid"))
-    public_url = state.get("mcp_url") or os.getenv("BRIXTA_MCP_PUBLIC_URL", "")
-    configured = bool(public_url.startswith("https://"))
-    local_client = state.get("mode") == "local-client" and public_url.startswith(
-        ("http://127.0.0.1", "http://localhost")
-    )
-    return {
-        "connected": (
-            local_client and mcp_alive
-        ) or (
-            configured and (
-                (mcp_alive and tunnel_alive)
-                if state.get("mode") == "local"
-                else True
-            )
-        ),
-        "mode": state.get("mode") or ("production" if configured else "disconnected"),
-        "mcp_url": public_url if configured or local_client else None,
-        "authenticated": state.get("auth_mode") == "oauth-local" or os.getenv("BRIXTA_MCP_AUTH_MODE") == "jwt",
-        "shared_gateway": True,
-    }
+    return chatgpt_connection_status()
 
 from api.prod_api.plugins import (
     embedding_plugins,

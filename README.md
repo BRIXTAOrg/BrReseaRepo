@@ -381,6 +381,9 @@ For the simplest local setup, run one worker that consumes every configured queu
 
 ```bash
 python -m celery -A runtime.celery_app.celery worker --loglevel=info
+
+(Resea) zaheerabbas@Zaheers-MacBook-Air BrReseaRepo-main new new % sudo dscacheutil -flushcache
+sudo killall -HUP mDNSResponder
 ```
 
 Start the scheduler in another terminal when using cron sources:
@@ -1060,6 +1063,78 @@ These are roadmap items, not hidden capabilities.
 ---
 
 ## Contributing
+
+ENV EXAMPLE FOR PRODUCTION
+
+# ---------------------------------------------------------------------
+# Internal services
+# ---------------------------------------------------------------------
+
+DATABASE_URL=postgresql://USER:PASSWORD@DATABASE_HOST:5432/DATABASE?sslmode=require
+
+REDIS_URL=redis://redis-service.brixta.svc.cluster.local:6379/0
+
+ARTIFACT_BACKEND=minio
+MINIO_ENDPOINT=minio-service.brixta.svc.cluster.local:9000
+MINIO_CONSOLE_URL=https://storage-admin.example.com
+MINIO_ACCESS_KEY=FROM_SECRET_MANAGER
+MINIO_SECRET_KEY=FROM_SECRET_MANAGER
+MINIO_BUCKET=brixta
+MINIO_SECURE=false
+
+# ---------------------------------------------------------------------
+# Public URLs
+# ---------------------------------------------------------------------
+
+BRIXTA_API_PUBLIC_URL=https://api.example.com
+BRIXTA_DASHBOARD_PUBLIC_URL=https://app.example.com
+BRIXTA_MCP_PUBLIC_URL=https://mcp.example.com/mcp
+
+# Next.js server reaches FastAPI through the internal Kubernetes service
+PYTHON_BACKEND_URL=http://brixta-api.brixta.svc.cluster.local:8000
+
+# ---------------------------------------------------------------------
+# MCP authentication
+# ---------------------------------------------------------------------
+
+BRIXTA_MCP_AUTH_MODE=jwt
+BRIXTA_MCP_TRANSPORT=http
+BRIXTA_MCP_HOST=0.0.0.0
+BRIXTA_MCP_PORT=8001
+
+BRIXTA_MCP_JWT_ISSUER=https://identity.example.com/
+BRIXTA_MCP_JWKS_URI=https://identity.example.com/.well-known/jwks.json
+BRIXTA_MCP_JWT_AUDIENCE=https://mcp.example.com/mcp
+BRIXTA_MCP_TENANT_CLAIM=tenant_id
+
+BRIXTA_CHATGPT_DISTRIBUTION=published
+
+# ---------------------------------------------------------------------
+# Models
+# ---------------------------------------------------------------------
+
+EMBEDDING_PLUGIN=sentence-transformers
+EMBEDDING_MODEL=nomic-ai/nomic-embed-text-v1.5
+BRIXTA_DOCLING_DEVICE=cpu
+BRIXTA_DOCLING_THREADS=4
+
+# ---------------------------------------------------------------------
+# Recovery and simulations
+# ---------------------------------------------------------------------
+
+MAX_TASK_ATTEMPTS=3
+TASK_RETRY_BACKOFF_SECONDS=15
+ORPHAN_TIMEOUT_SECONDS=1800
+MAX_JOB_RUNS=3
+
+CALCULIX_EXECUTABLE=ccx
+OPENFOAM_BLOCKMESH_EXECUTABLE=blockMesh
+OPENFOAM_CHECKMESH_EXECUTABLE=checkMesh
+OPENFOAM_RUN_EXECUTABLE=foamRun
+OPENFOAM_VTK_EXECUTABLE=foamToVTK
+SIMULATION_TIMEOUT_SECONDS=3600
+
+LOG_LEVEL=INFO
 
 Before opening a change:
 

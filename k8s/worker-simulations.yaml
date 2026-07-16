@@ -17,7 +17,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
         - name: celery-simulations
-          image: your-registry/brixta-simulations:2.1.0
+          image: your-registry/brixta-simulations:2.2.0
           imagePullPolicy: IfNotPresent
           envFrom:
             - secretRef:

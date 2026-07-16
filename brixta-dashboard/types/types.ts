@@ -111,8 +111,45 @@ export interface SimulationCaseCard {
   solver: string;
   analysis_type: string;
   execution_modes: ("preview" | "solver")[];
+  parameter_schema: {
+    properties?: Record<string, {
+      type?: string;
+      title?: string;
+      description?: string;
+      default?: number | string | null;
+      minimum?: number;
+      maximum?: number;
+      exclusiveMinimum?: number;
+      exclusiveMaximum?: number;
+      json_schema_extra?: { unit?: string; group?: string };
+      unit?: string;
+      group?: string;
+    }>;
+    required?: string[];
+  };
   outputs: string[];
   limitations: string[];
+}
+
+export interface SimulationVisualization {
+  schema_version: string;
+  title: string;
+  kind: "solid" | "flow";
+  source: string;
+  source_label: string;
+  units: string;
+  meshes: Array<{
+    id: string;
+    name: string;
+    vertices: number[][];
+    triangles: number[][];
+    displacements?: number[][];
+    opacity?: number;
+    scalar?: { name: string; unit: string; values: number[]; range: number[] };
+  }>;
+  vectors: Array<{ position: number[]; direction: number[]; magnitude: number }>;
+  streamlines: Array<{ points: number[][]; magnitude: number }>;
+  annotations: Array<{ label: string; position: number[] }>;
 }
 
 export interface SimulationEvidence {
@@ -141,7 +178,11 @@ export interface SimulationRun {
   execution_mode: "preview" | "solver";
   status: string;
   current_stage: string;
-  spec: { parameters: Record<string, number>; validation_warnings?: string[] };
+  spec: {
+    parameters: Record<string, number | string | null>;
+    validation_warnings?: string[];
+    visualization?: SimulationVisualization;
+  };
   evidence: SimulationEvidence[];
   summary?: Record<string, unknown>;
   artifacts: SimulationArtifact[];
@@ -159,4 +200,6 @@ export interface SimulationPreflight {
   evidence: SimulationEvidence[];
   warnings: string[];
   compiled_files: string[];
+  simulation_spec: Record<string, unknown>;
+  visualization: SimulationVisualization;
 }

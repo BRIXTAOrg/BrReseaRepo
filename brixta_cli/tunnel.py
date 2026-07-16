@@ -1,54 +1,98 @@
-"""Secure local HTTPS tunnel lifecycle."""
+"""Cloudflare Quick Tunnel process lifecycle for local development."""
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
-import queue
 import re
 import shutil
 import subprocess
-import threading
 import time
 
 
-TUNNEL_URL = re.compile(r"https://[a-z0-9-]+\.trycloudflare\.com")
+TUNNEL_URL = re.compile(rb"https://[a-z0-9-]+\.trycloudflare\.com")
 
 
-def start_cloudflare_tunnel(local_url: str, log_path: Path) -> tuple[subprocess.Popen[str], str]:
+def stop_process(process: subprocess.Popen[bytes], timeout: float = 5) -> None:
+    """Stop a process created by this module without leaving a zombie."""
+    if process.poll() is not None:
+        return
+    process.terminate()
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait(timeout=timeout)
+
+
+def start_cloudflare_tunnel(
+    local_url: str,
+    log_path: Path,
+    *,
+    timeout: float | None = None,
+) -> tuple[subprocess.Popen[bytes], str]:
+    """Start a detached Quick Tunnel and return its process and MCP URL.
+
+    cloudflared writes directly to the durable log file.  The old
+    implementation used ``stdout=PIPE`` and a daemon reader thread; that pipe
+    disappeared when the short-lived CLI exited and could take cloudflared
+    down with it.
+    """
     executable = shutil.which("cloudflared")
     if executable is None:
         raise RuntimeError(
-            "cloudflared is required for --local. Install it with `brew install cloudflared` "
-            "and run the command again."
+            "cloudflared is required for --local. Install it with "
+            "`brew install cloudflared` and run the command again."
         )
-    process = subprocess.Popen(
-        [executable, "tunnel", "--no-autoupdate", "--url", local_url],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        start_new_session=True,
+
+    log_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    start_offset = log_path.stat().st_size if log_path.exists() else 0
+    protocol = os.getenv("BRIXTA_CLOUDFLARE_PROTOCOL", "http2").strip() or "http2"
+    start_timeout = timeout or float(
+        os.getenv("BRIXTA_CLOUDFLARE_START_TIMEOUT", "45")
     )
-    lines: queue.Queue[str] = queue.Queue()
 
-    def consume() -> None:
-        assert process.stdout is not None
-        with log_path.open("a", encoding="utf-8") as log:
-            for line in process.stdout:
-                log.write(line)
-                log.flush()
-                lines.put(line)
+    # The child inherits its own file descriptor.  Closing the parent's copy
+    # after Popen is safe and leaves cloudflared with a durable output target.
+    with log_path.open("ab", buffering=0) as output:
+        process: subprocess.Popen[bytes] = subprocess.Popen(
+            [
+                executable,
+                "tunnel",
+                "--no-autoupdate",
+                "--protocol",
+                protocol,
+                "--loglevel",
+                "info",
+                "--url",
+                local_url,
+            ],
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
 
-    threading.Thread(target=consume, daemon=True).start()
-    deadline = time.monotonic() + 35
-    while time.monotonic() < deadline:
-        if process.poll() is not None:
-            raise RuntimeError(f"cloudflared exited early; inspect {log_path}")
-        try:
-            line = lines.get(timeout=0.5)
-        except queue.Empty:
-            continue
-        match = TUNNEL_URL.search(line)
-        if match:
-            return process, f"{match.group(0)}/mcp"
-    process.terminate()
-    raise RuntimeError(f"Timed out waiting for the tunnel URL; inspect {log_path}")
+    deadline = time.monotonic() + start_timeout
+    captured = b""
+    with log_path.open("rb") as reader:
+        reader.seek(start_offset)
+        while time.monotonic() < deadline:
+            if process.poll() is not None:
+                raise RuntimeError(
+                    f"cloudflared exited early with status {process.returncode}; "
+                    f"inspect {log_path}"
+                )
+
+            chunk = reader.read()
+            if chunk:
+                captured = (captured + chunk)[-131_072:]
+                match = TUNNEL_URL.search(captured)
+                if match:
+                    public_root = match.group(0).decode("ascii")
+                    return process, f"{public_root}/mcp"
+            time.sleep(0.2)
+
+    stop_process(process)
+    raise RuntimeError(
+        f"Timed out waiting for the Cloudflare tunnel URL; inspect {log_path}"
+    )

@@ -118,6 +118,9 @@ def create_simulation_run(payload: SimulationRunRequest) -> dict[str, Any]:
         "knowledge_base_ids": payload.knowledge_base_ids,
         "evidence_query": payload.evidence_query,
         "validation_warnings": preflight["warnings"],
+        # A solver-neutral scene travels with the run so the dashboard can
+        # render previews without parsing CalculiX FRD or OpenFOAM VTK files.
+        "visualization": preflight["visualization"],
     }
     return SimulationRunRepository.create(
         tenant_id=payload.tenant_id,
