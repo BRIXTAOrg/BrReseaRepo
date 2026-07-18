@@ -9,6 +9,7 @@ fake_config = types.ModuleType("core.config")
 fake_config.BRIXTA_API_PUBLIC_URL = "http://localhost:8000"
 fake_config.BRIXTA_DASHBOARD_PUBLIC_URL = "http://localhost:3000"
 fake_config.BRIXTA_MCP_PUBLIC_URL = "http://localhost:8001/mcp"
+fake_config.BRIXTA_MCP_AUTH_MODE = "none"
 fake_database = types.ModuleType("core.database")
 fake_database.get_connection = None
 fake_plugins = types.ModuleType("core.plugin_loader")
@@ -48,7 +49,19 @@ class KnowledgeServiceTests(unittest.TestCase):
             manifest["uri"],
             "brixta://knowledge/4a12fa08-4663-4e92-a8f7-c72d0cc747ad",
         )
-        self.assertIn("BRIXTA_KNOWLEDGE_BASE_ID=", manifest["mcp_command"])
+        self.assertEqual(
+            manifest["mcp_url"],
+            "http://localhost:8001/mcp",
+        )
+        self.assertEqual(
+            manifest["mcp_scope"],
+            {
+                "knowledge_base_id": "4a12fa08-4663-4e92-a8f7-c72d0cc747ad",
+                "tenant_id": "acme",
+            },
+        )
+        self.assertFalse(manifest["chatgpt_ready"])
+        self.assertNotIn("mcp_command", manifest)
 
 if __name__ == "__main__":
     unittest.main()
