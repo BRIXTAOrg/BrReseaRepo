@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "brixta"
 version = "2.1.0"
 description = "Integration-first AI ingestion, retrieval, and MCP runtime"
+readme = { file = "README.md", content-type = "text/markdown" }
 requires-python = ">=3.11,<3.14"
 dependencies = [
   "fastapi>=0.115,<1",
@@ -28,7 +29,8 @@ dependencies = [
 rag = [
   "sentence-transformers>=3,<6",
   "einops>=0.7,<1",
-  "fastmcp>=2,<3",
+  "fastmcp>=2.14,<2.15",
+  "py-key-value-aio[redis]>=0.3,<0.4",
 ]
 workers = [
   "docling>=2,<3",

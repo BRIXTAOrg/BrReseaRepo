@@ -96,3 +96,20 @@ spec:
     - name: console
       port: 9001
       targetPort: console
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-console-nodeport
+  namespace: brixta
+spec:
+  # Keep the S3 API private. Only the administrative console is exposed to
+  # the host-managed Cloudflare Tunnel.
+  type: NodePort
+  selector:
+    app: minio
+  ports:
+    - name: console
+      port: 9001
+      targetPort: console
+      nodePort: 30022

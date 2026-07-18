@@ -6,10 +6,12 @@ metadata:
   labels:
     app: brixta-mcp
 spec:
-  type: ClusterIP
+  # The host-managed Cloudflare Tunnel connects to this NodePort.
+  type: NodePort
   selector:
     app: brixta-mcp
   ports:
     - name: mcp-http
       port: 80
       targetPort: 8001
+      nodePort: 30021

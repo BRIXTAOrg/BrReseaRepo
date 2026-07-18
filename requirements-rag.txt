@@ -4,4 +4,5 @@
 # lightweight control plane so production can deploy them as a separate service.
 sentence-transformers>=3,<6
 einops>=0.7,<1
-fastmcp>=2,<3
+fastmcp>=2.14,<2.15
+py-key-value-aio[redis]>=0.3,<0.4

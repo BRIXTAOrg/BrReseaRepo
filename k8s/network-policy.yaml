@@ -10,7 +10,7 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: cloudflared-to-public-services
+  name: nodeport-to-public-services
   namespace: brixta
 spec:
   podSelector:
@@ -20,10 +20,16 @@ spec:
         values: [brixta-dashboard, brixta-mcp, minio]
   policyTypes: ["Ingress"]
   ingress:
-    - from:
-        - podSelector:
-            matchLabels:
-              app: cloudflared
+    # cloudflared runs on the Kubernetes host in this deployment model. The
+    # NetworkPolicy therefore permits only the public pods' application ports;
+    # the host firewall must restrict NodePorts 30020-30022 to the host itself.
+    - ports:
+        - protocol: TCP
+          port: 3000
+        - protocol: TCP
+          port: 8001
+        - protocol: TCP
+          port: 9001
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

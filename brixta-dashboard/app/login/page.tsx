@@ -5,6 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth0, auth0Enabled, dashboardAuthMode } from "@/lib/auth0";
 
+// Authentication is configured when the container starts. Rendering this page
+// at build time would permanently bake the CI environment's auth mode into the
+// production image.
+export const dynamic = "force-dynamic";
+
 export default async function LoginPage() {
   if (auth0Enabled && auth0 && (await auth0.getSession())) {
     redirect("/dashboard");
