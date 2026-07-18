@@ -20,6 +20,44 @@ import {
 export const brixtaSchema = pgSchema("BrResearch");
 
 // -----------------------------------------------------------------------------
+// Identity and access
+// OIDC verifies identity; BRIXTA owns tenants/memberships to avoid coupling
+// authorization to paid identity-provider organization features.
+// -----------------------------------------------------------------------------
+
+export const authUsers = brixtaSchema.table("auth_users", {
+  subject: text("subject").primaryKey(),
+  email: text("email"),
+  displayName: text("display_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const tenants = brixtaSchema.table("tenants", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const tenantMemberships = brixtaSchema.table("tenant_memberships", {
+  subject: text("subject")
+    .notNull()
+    .references(() => authUsers.subject, { onDelete: "cascade" }),
+  tenantId: text("tenant_id")
+    .notNull()
+    .references(() => tenants.id, { onDelete: "cascade" }),
+  role: text("role").default("member").notNull(),
+  isDefault: boolean("is_default").default(false).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  primaryKey({
+    name: "tenant_memberships_subject_tenant_pk",
+    columns: [table.subject, table.tenantId],
+  }),
+  index("tenant_memberships_tenant_idx").on(table.tenantId),
+]);
+
+// -----------------------------------------------------------------------------
 // pgvector
 // Model dimensions are recorded per row so pipelines may select different
 // approved embedding models. Similarity queries must filter by model/dimension.

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from api.auth import AdminPrincipal, CurrentPrincipal, Principal
+from api.auth import AdminPrincipal, CurrentPrincipal, Principal, WritePrincipal
 
 # ---------------------------------------------------------------------
 # Storage
@@ -96,20 +96,20 @@ class KnowledgeAccessRequest(BaseModel):
 router = APIRouter()
 
 
-def _job_for_principal(job_id: str, principal: Principal):
+def _job_for_principal(job_id: str, principal: Principal, *, write: bool = False):
     job = JobRepository.get(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found.")
-    principal.tenant_for(job["tenant_id"])
+    principal.tenant_for(job["tenant_id"], write=write)
     return job
 
 
-def _manifest_for_principal(job_id: str, principal: Principal):
+def _manifest_for_principal(job_id: str, principal: Principal, *, write: bool = False):
     try:
         manifest = describe_knowledge_base(job_id)
     except KnowledgeBaseError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    principal.tenant_for(manifest["tenant_id"])
+    principal.tenant_for(manifest["tenant_id"], write=write)
     return manifest
 
 
@@ -119,15 +119,12 @@ def ingestion_jobs(
     limit: int = 100,
     tenant_id: str | None = None,
 ):
-    try:
-        return {
-            "jobs": JobRepository.list(
-                limit=min(max(limit, 1), 500),
-                tenant_id=principal.tenant_for(tenant_id),
-            )
-        }
-    except Exception as exc:
-        return {"jobs": [], "error": str(exc)}
+    return {
+        "jobs": JobRepository.list(
+            limit=min(max(limit, 1), 500),
+            tenant_id=principal.tenant_for(tenant_id),
+        )
+    }
 
 
 @router.get("/jobs/{job_id}")
@@ -143,8 +140,8 @@ def ingestion_job(job_id: str, principal: CurrentPrincipal):
 
 
 @router.post("/jobs/{job_id}/retry")
-def retry_ingestion_job(job_id: str, principal: CurrentPrincipal):
-    _job_for_principal(job_id, principal)
+def retry_ingestion_job(job_id: str, principal: WritePrincipal):
+    _job_for_principal(job_id, principal, write=True)
     try:
         return retry_failed_job(job_id)
     except JobRetryError as exc:
@@ -225,9 +222,9 @@ def knowledge_access(job_id: str, principal: CurrentPrincipal):
 def update_knowledge_access(
     job_id: str,
     payload: KnowledgeAccessRequest,
-    principal: CurrentPrincipal,
+    principal: WritePrincipal,
 ):
-    manifest = _manifest_for_principal(job_id, principal)
+    manifest = _manifest_for_principal(job_id, principal, write=True)
     enabled = KnowledgeAccessRepository.set_enabled(
         manifest["tenant_id"],
         job_id,
@@ -249,9 +246,9 @@ def knowledge_chatgpt_connection(job_id: str, principal: CurrentPrincipal):
 
 
 @router.post("/knowledge/{job_id}/chatgpt-connection")
-def prepare_knowledge_chatgpt_connection(job_id: str, principal: CurrentPrincipal):
+def prepare_knowledge_chatgpt_connection(job_id: str, principal: WritePrincipal):
     """Enable one knowledge base and prepare the shared ChatGPT handoff."""
-    manifest = _manifest_for_principal(job_id, principal)
+    manifest = _manifest_for_principal(job_id, principal, write=True)
     enabled = KnowledgeAccessRepository.set_enabled(
         manifest["tenant_id"],
         job_id,

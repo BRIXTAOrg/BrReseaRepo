@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readdir, readFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,7 +11,14 @@ if (!databaseUrl) {
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const migrationDirectory = path.join(here, "migrations");
+// Only forward-safe production migrations belong in this ordered manifest.
+// The remaining files under drizzle/ are historical drizzle-kit output and
+// include destructive schema experiments; never replay that directory blindly.
+const migrationDirectory = path.join(here, "drizzle");
+const migrationNames = [
+  "0001_production_baseline.sql",
+  "0007_identity_and_access.sql",
+];
 const sql = postgres(databaseUrl, {
   max: 1,
   prepare: false,
@@ -29,11 +36,7 @@ try {
     )
   `);
 
-  const files = (await readdir(migrationDirectory))
-    .filter((name) => name.endsWith(".sql"))
-    .sort();
-
-  for (const name of files) {
+  for (const name of migrationNames) {
     const source = await readFile(path.join(migrationDirectory, name), "utf8");
     const checksum = createHash("sha256").update(source).digest("hex");
     const rows = await sql`

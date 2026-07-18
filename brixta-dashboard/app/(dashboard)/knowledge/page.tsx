@@ -4,11 +4,11 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchPythonApi } from "@/lib/api";
+import { fetchPythonApiServer } from "@/lib/server-api";
 import type { KnowledgeBase } from "@/types/types";
 
 export default async function KnowledgePage() {
-  const response = await fetchPythonApi("/prod/knowledge", { cache: "no-store" }) as { knowledge_bases?: KnowledgeBase[]; error?: string };
+  const response = await fetchPythonApiServer("/prod/knowledge") as { knowledge_bases?: KnowledgeBase[]; error?: string };
   const items = response.knowledge_bases || [];
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6 md:p-8">

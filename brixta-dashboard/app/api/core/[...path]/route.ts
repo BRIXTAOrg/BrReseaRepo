@@ -1,13 +1,33 @@
 import type { NextRequest } from "next/server";
+import { auth0, auth0Enabled } from "@/lib/auth0";
 
 const backend = process.env.PYTHON_BACKEND_URL || "http://127.0.0.1:8000";
 
 async function proxy(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  if (auth0Enabled && !["GET", "HEAD", "OPTIONS"].includes(request.method)) {
+    const configuredOrigin = process.env.APP_BASE_URL;
+    const requestOrigin = request.headers.get("origin");
+    if (!configuredOrigin || !requestOrigin || requestOrigin !== new URL(configuredOrigin).origin) {
+      return Response.json({ detail: "Cross-site request rejected." }, { status: 403 });
+    }
+  }
   const { path } = await context.params;
   const target = new URL(`/${path.join("/")}`, backend);
   target.search = request.nextUrl.search;
   const headers = new Headers(request.headers);
   headers.delete("host");
+  headers.delete("cookie");
+  if (auth0Enabled) {
+    if (!auth0) {
+      return Response.json({ detail: "Dashboard authentication is unavailable." }, { status: 503 });
+    }
+    try {
+      const { token } = await auth0.getAccessToken();
+      headers.set("authorization", `Bearer ${token}`);
+    } catch {
+      return Response.json({ detail: "Your BRIXTA session has expired." }, { status: 401 });
+    }
+  }
   try {
     const response = await fetch(target, {
       method: request.method,

@@ -16,6 +16,7 @@ from starlette.responses import JSONResponse, Response
 from core.config import (
     BRIXTA_ADMIN_EMAILS,
     BRIXTA_ADMIN_ROLES,
+    BRIXTA_ADMIN_SUBJECTS,
     BRIXTA_AUTH_ALGORITHMS,
     BRIXTA_AUTH_AUDIENCE,
     BRIXTA_AUTH_EMAIL_CLAIM,
@@ -24,14 +25,18 @@ from core.config import (
     BRIXTA_AUTH_MODE,
     BRIXTA_AUTH_ROLES_CLAIM,
     BRIXTA_AUTH_TENANT_CLAIM,
+    BRIXTA_AUTHORIZATION_BACKEND,
     BRIXTA_DEFAULT_TENANT_ID,
     BRIXTA_ENVIRONMENT,
+    BRIXTA_SIGNUP_MODE,
 )
+from runtime.auth import IdentityAccessRepository
 
 
 PUBLIC_PATHS = frozenset({"/health", "/openapi.json"})
 PUBLIC_PREFIXES = ("/docs", "/redoc")
 SUPPORTED_AUTH_MODES = frozenset({"none", "cloudflare-access", "jwt"})
+WRITE_ROLES = frozenset({"member", "operator", "admin", "owner", "brixta-admin"})
 
 
 @dataclass(frozen=True)
@@ -42,27 +47,56 @@ class Principal:
     roles: frozenset[str]
     claims: dict[str, Any]
     authenticated: bool
+    tenant_ids: frozenset[str] = frozenset()
+    tenant_roles: dict[str, str] | None = None
 
     @property
     def is_admin(self) -> bool:
-        return bool(self.roles & BRIXTA_ADMIN_ROLES) or self.email.lower() in BRIXTA_ADMIN_EMAILS
+        return (
+            bool(self.roles & BRIXTA_ADMIN_ROLES)
+            or self.subject in BRIXTA_ADMIN_SUBJECTS
+            or self.email.lower() in BRIXTA_ADMIN_EMAILS
+        )
 
-    def tenant_for(self, requested: str | None = None) -> str:
+    def tenant_for(self, requested: str | None = None, *, write: bool = False) -> str:
         candidate = (requested or "").strip()
         if BRIXTA_AUTH_MODE == "none":
-            return candidate or self.tenant_id
-        if candidate and candidate != self.tenant_id:
+            selected = candidate or self.tenant_id
+            if write:
+                self.require_write(selected)
+            return selected
+        allowed = self.tenant_ids or frozenset({self.tenant_id})
+        if candidate and candidate not in allowed:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="The requested tenant is outside the authenticated scope.",
             )
-        return self.tenant_id
+        selected = candidate or self.tenant_id
+        if write:
+            self.require_write(selected)
+        return selected
 
     def require_admin(self) -> None:
         if not self.is_admin:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Administrator permission is required.",
+            )
+
+    def require_write(self, tenant_id: str | None = None) -> None:
+        selected = tenant_id or self.tenant_id
+        selected_roles = self.roles
+        if self.tenant_roles is not None:
+            role = self.tenant_roles.get(selected)
+            selected_roles = frozenset({role}) if role else frozenset()
+        global_admin = (
+            self.subject in BRIXTA_ADMIN_SUBJECTS
+            or self.email.lower() in BRIXTA_ADMIN_EMAILS
+        )
+        if not global_admin and not (selected_roles & WRITE_ROLES):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="A write-capable tenant role is required.",
             )
 
 
@@ -72,6 +106,8 @@ def validate_auth_configuration() -> None:
     if BRIXTA_ENVIRONMENT == "production" and BRIXTA_AUTH_MODE == "none":
         raise RuntimeError("Production refuses to start with BRIXTA_AUTH_MODE=none.")
     if BRIXTA_AUTH_MODE != "none":
+        if BRIXTA_SIGNUP_MODE not in {"closed", "personal"}:
+            raise RuntimeError("BRIXTA_SIGNUP_MODE must be 'closed' or 'personal'.")
         missing = [
             name
             for name, value in (
@@ -83,7 +119,13 @@ def validate_auth_configuration() -> None:
         ]
         if missing:
             raise RuntimeError("Authenticated API mode is missing: " + ", ".join(missing))
-        if not BRIXTA_AUTH_TENANT_CLAIM and not BRIXTA_DEFAULT_TENANT_ID:
+        if BRIXTA_AUTHORIZATION_BACKEND not in {"claims", "postgres"}:
+            raise RuntimeError("BRIXTA_AUTHORIZATION_BACKEND must be 'claims' or 'postgres'.")
+        if (
+            BRIXTA_AUTHORIZATION_BACKEND == "claims"
+            and not BRIXTA_AUTH_TENANT_CLAIM
+            and not BRIXTA_DEFAULT_TENANT_ID
+        ):
             raise RuntimeError("Set BRIXTA_AUTH_TENANT_CLAIM or BRIXTA_DEFAULT_TENANT_ID.")
 
 
@@ -124,6 +166,23 @@ def _decode_token(token: str) -> dict[str, Any]:
 
 
 def _principal_from_claims(claims: dict[str, Any]) -> Principal:
+    subject = str(claims.get("sub") or "").strip()
+    email = str(claims.get(BRIXTA_AUTH_EMAIL_CLAIM) or "").strip()
+    if BRIXTA_AUTHORIZATION_BACKEND == "postgres":
+        try:
+            resolved = IdentityAccessRepository.resolve(subject=subject, email=email)
+        except PermissionError as exc:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+        return Principal(
+            subject=resolved.subject,
+            email=resolved.email,
+            tenant_id=resolved.tenant_id,
+            roles=resolved.roles,
+            claims=claims,
+            authenticated=True,
+            tenant_ids=resolved.tenant_ids,
+            tenant_roles=resolved.tenant_roles,
+        )
     tenant = str(claims.get(BRIXTA_AUTH_TENANT_CLAIM) or BRIXTA_DEFAULT_TENANT_ID).strip()
     if not tenant:
         raise HTTPException(
@@ -131,12 +190,13 @@ def _principal_from_claims(claims: dict[str, Any]) -> Principal:
             detail=f"Token has no '{BRIXTA_AUTH_TENANT_CLAIM}' tenant claim.",
         )
     return Principal(
-        subject=str(claims.get("sub") or "").strip(),
-        email=str(claims.get(BRIXTA_AUTH_EMAIL_CLAIM) or "").strip(),
+        subject=subject,
+        email=email,
         tenant_id=tenant,
         roles=_roles(claims.get(BRIXTA_AUTH_ROLES_CLAIM)),
         claims=claims,
         authenticated=True,
+        tenant_ids=frozenset({tenant}),
     )
 
 
@@ -148,6 +208,8 @@ def _local_principal() -> Principal:
         roles=frozenset({"admin"}),
         claims={},
         authenticated=False,
+        tenant_ids=frozenset({BRIXTA_DEFAULT_TENANT_ID or "default"}),
+        tenant_roles={BRIXTA_DEFAULT_TENANT_ID or "default": "admin"},
     )
 
 
@@ -201,5 +263,12 @@ def admin_principal(principal: Annotated[Principal, Depends(current_principal)])
     return principal
 
 
+def write_principal(principal: Annotated[Principal, Depends(current_principal)]) -> Principal:
+    # The target tenant is part of each mutation payload/path. The route must
+    # resolve it with ``tenant_for(..., write=True)`` before changing state.
+    return principal
+
+
 CurrentPrincipal = Annotated[Principal, Depends(current_principal)]
 AdminPrincipal = Annotated[Principal, Depends(admin_principal)]
+WritePrincipal = Annotated[Principal, Depends(write_principal)]

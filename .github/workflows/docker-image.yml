@@ -29,11 +29,19 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-api.txt
       - name: Install lightweight test dependencies
-        run: python -m pip install -r requirements-api.txt
+        run: >-
+          python -m pip install -r requirements-api.txt
+          'fastmcp>=2.14,<3'
+          'py-key-value-aio[redis]>=0.4,<1'
       - name: Compile Python sources
         run: python -m compileall -q api brixta_cli brixta_mcp brixta_sdk core plugins runtime tests
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
+      - name: Build MCP tool catalog
+        env:
+          BRIXTA_MCP_AUTH_MODE: none
+          BRIXTA_MCP_TENANT_ID: ci-test
+        run: python -c "from brixta_mcp.server import create_server; create_server()"
 
   dashboard-tests:
     runs-on: ubuntu-latest

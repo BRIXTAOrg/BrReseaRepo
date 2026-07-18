@@ -12,6 +12,7 @@ from runtime.sources.service import enqueue_source
 
 class SourceSummary(BaseModel):
     id: str
+    tenant_id: str
     name: str
     start_url: str
     enabled: bool
@@ -56,14 +57,17 @@ def register_source_tools(mcp: FastMCP) -> None:
         annotations=READ_ONLY_ANNOTATIONS,
         meta=READ_SECURITY,
     )
-    def brixta_list_sources() -> SourceListOutput:
-        """List configured sources available to the authenticated tenant."""
+    def brixta_list_sources(tenant_id: str | None = None) -> SourceListOutput:
+        """List configured sources across authorized tenants, or one tenant."""
         access = current_access_context()
         access.require(READ_SCOPE)
+        sources = []
+        for selected in access.accessible_tenants(tenant_id):
+            sources.extend(SourceRepository.list(selected))
         return SourceListOutput(
             sources=[
                 SourceSummary(**source)
-                for source in SourceRepository.list(access.tenant_id)
+                for source in sources
             ]
         )
 
@@ -75,10 +79,10 @@ def register_source_tools(mcp: FastMCP) -> None:
     def brixta_sync_source(source_id: str) -> SyncOutput:
         """Queue an authorized source for ingestion and indexing."""
         access = current_access_context()
-        access.require(WRITE_SCOPE)
         source = SourceRepository.get(source_id)
-        if source is None or source.get("tenant_id") != access.tenant_id:
+        if source is None:
             raise ValueError("Source not found.")
+        access.tenant_for(str(source.get("tenant_id") or ""), write=True)
         if not source.get("enabled", False):
             raise ValueError("Source is disabled.")
         return SyncOutput(**enqueue_source(source))

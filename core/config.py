@@ -56,10 +56,23 @@ BRIXTA_AUTH_TENANT_CLAIM = os.getenv("BRIXTA_AUTH_TENANT_CLAIM", "tenant_id").st
 BRIXTA_AUTH_ROLES_CLAIM = os.getenv("BRIXTA_AUTH_ROLES_CLAIM", "roles").strip()
 BRIXTA_AUTH_EMAIL_CLAIM = os.getenv("BRIXTA_AUTH_EMAIL_CLAIM", "email").strip()
 BRIXTA_DEFAULT_TENANT_ID = os.getenv("BRIXTA_DEFAULT_TENANT_ID", "").strip()
+BRIXTA_AUTHORIZATION_BACKEND = os.getenv(
+    "BRIXTA_AUTHORIZATION_BACKEND",
+    "postgres" if BRIXTA_ENVIRONMENT == "production" else "claims",
+).strip().lower()
+BRIXTA_SIGNUP_MODE = os.getenv(
+    "BRIXTA_SIGNUP_MODE",
+    "closed" if BRIXTA_ENVIRONMENT == "production" else "personal",
+).strip().lower()
+BRIXTA_BOOTSTRAP_TENANT_ID = os.getenv(
+    "BRIXTA_BOOTSTRAP_TENANT_ID",
+    BRIXTA_DEFAULT_TENANT_ID,
+).strip()
 BRIXTA_ADMIN_ROLES = frozenset(_csv("BRIXTA_ADMIN_ROLES", "admin,brixta-admin"))
 BRIXTA_ADMIN_EMAILS = frozenset(
     value.lower() for value in _csv("BRIXTA_ADMIN_EMAILS")
 )
+BRIXTA_ADMIN_SUBJECTS = frozenset(_csv("BRIXTA_ADMIN_SUBJECTS"))
 BRIXTA_CORS_ORIGINS = _csv(
     "BRIXTA_CORS_ORIGINS",
     "http://localhost:3000,http://127.0.0.1:3000",
@@ -119,6 +132,18 @@ BRIXTA_MCP_JWKS_URI = os.getenv("BRIXTA_MCP_JWKS_URI", "")
 BRIXTA_MCP_JWT_PUBLIC_KEY = os.getenv("BRIXTA_MCP_JWT_PUBLIC_KEY", "")
 BRIXTA_MCP_JWT_ISSUER = os.getenv("BRIXTA_MCP_JWT_ISSUER", "")
 BRIXTA_MCP_JWT_AUDIENCE = os.getenv("BRIXTA_MCP_JWT_AUDIENCE", "")
+BRIXTA_MCP_AUTH0_CONFIG_URL = os.getenv("BRIXTA_MCP_AUTH0_CONFIG_URL", "").strip()
+BRIXTA_MCP_AUTH0_CLIENT_ID = os.getenv("BRIXTA_MCP_AUTH0_CLIENT_ID", "").strip()
+BRIXTA_MCP_AUTH0_CLIENT_SECRET = os.getenv(
+    "BRIXTA_MCP_AUTH0_CLIENT_SECRET", ""
+).strip()
+BRIXTA_MCP_AUTH0_AUDIENCE = os.getenv("BRIXTA_MCP_AUTH0_AUDIENCE", "").strip()
+BRIXTA_MCP_OAUTH_SIGNING_KEY = os.getenv("BRIXTA_MCP_OAUTH_SIGNING_KEY", "").strip()
+BRIXTA_MCP_OAUTH_STORAGE_KEY = os.getenv("BRIXTA_MCP_OAUTH_STORAGE_KEY", "").strip()
+BRIXTA_MCP_AUTHORIZATION_BACKEND = os.getenv(
+    "BRIXTA_MCP_AUTHORIZATION_BACKEND",
+    BRIXTA_AUTHORIZATION_BACKEND,
+).strip().lower()
 
 #----------------------------------------------------------------------
 #Artifact

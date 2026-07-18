@@ -27,6 +27,7 @@ READ_ONLY_ANNOTATIONS = {
 
 class KnowledgeSummary(BaseModel):
     id: str
+    tenant_id: str
     uri: str
     name: str
     source_type: str
@@ -65,19 +66,25 @@ def register_knowledge_tools(mcp: FastMCP) -> None:
         annotations=READ_ONLY_ANNOTATIONS,
         meta=READ_SECURITY,
     )
-    def brixta_list_knowledge_bases(limit: int = 100) -> KnowledgeListOutput:
-        """List ready knowledge bases available to the authenticated tenant."""
+    def brixta_list_knowledge_bases(
+        limit: int = 100,
+        tenant_id: str | None = None,
+    ) -> KnowledgeListOutput:
+        """List ready knowledge bases across authorized tenants, or one tenant."""
         access = current_access_context()
         access.require(READ_SCOPE)
-        items = KnowledgeAccessRepository.filter_enabled(
-            access.tenant_id,
-            list_knowledge_bases(
-                tenant_id=access.tenant_id,
-                limit=min(max(limit, 1), 200),
-            ),
-        )
+        capped = min(max(limit, 1), 200)
+        items: list[dict[str, Any]] = []
+        for selected in access.accessible_tenants(tenant_id):
+            items.extend(
+                KnowledgeAccessRepository.filter_enabled(
+                    selected,
+                    list_knowledge_bases(tenant_id=selected, limit=capped),
+                )
+            )
+        items.sort(key=lambda item: item.get("completed_at") or "", reverse=True)
         return KnowledgeListOutput(
-            knowledge_bases=[KnowledgeSummary(**item) for item in items]
+            knowledge_bases=[KnowledgeSummary(**item) for item in items[:capped]]
         )
 
     @mcp.tool(
@@ -89,17 +96,19 @@ def register_knowledge_tools(mcp: FastMCP) -> None:
         query: str = Field(min_length=1, max_length=4000),
         knowledge_base_id: str = Field(min_length=1),
         limit: int = 8,
+        tenant_id: str | None = None,
     ) -> SearchOutput:
         """Semantically search one authorized BRIXTA knowledge base."""
         access = current_access_context()
         access.require(READ_SCOPE)
-        if not KnowledgeAccessRepository.is_enabled(access.tenant_id, knowledge_base_id):
+        selected = access.tenant_for(tenant_id)
+        if not KnowledgeAccessRepository.is_enabled(selected, knowledge_base_id):
             raise PermissionError("This knowledge base is disabled for MCP access.")
         matches = search_knowledge_base(
             knowledge_base_id,
             query,
             limit=min(max(limit, 1), 20),
-            tenant_id=access.tenant_id,
+            tenant_id=selected,
         )
         return SearchOutput(
             results=[
@@ -119,12 +128,13 @@ def register_knowledge_tools(mcp: FastMCP) -> None:
         annotations=READ_ONLY_ANNOTATIONS,
         meta=READ_SECURITY,
     )
-    def brixta_get_chunk(result_id: str) -> FetchOutput:
+    def brixta_get_chunk(result_id: str, tenant_id: str | None = None) -> FetchOutput:
         """Fetch complete text and citation metadata for a BRIXTA search result."""
         access = current_access_context()
         access.require(READ_SCOPE)
+        selected = access.tenant_for(tenant_id)
         knowledge_base_id = result_id.rsplit(":", 1)[0]
-        if not KnowledgeAccessRepository.is_enabled(access.tenant_id, knowledge_base_id):
+        if not KnowledgeAccessRepository.is_enabled(selected, knowledge_base_id):
             raise PermissionError("This knowledge base is disabled for MCP access.")
-        item = fetch_chunk(result_id, tenant_id=access.tenant_id)
+        item = fetch_chunk(result_id, tenant_id=selected)
         return FetchOutput(**item)

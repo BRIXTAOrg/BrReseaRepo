@@ -46,10 +46,12 @@ def _row_to_manifest(row: tuple[Any, ...]) -> dict[str, Any]:
             "brixta_get_chunk",
             "brixta_list_sources",
             "brixta_sync_source",
+            "brixta_list_simulation_runs",
+            "brixta_get_simulation_report",
         ],
         "chatgpt_ready": (
             BRIXTA_MCP_PUBLIC_URL.startswith("https://")
-            and BRIXTA_MCP_AUTH_MODE in {"oauth-local", "jwt"}
+            and BRIXTA_MCP_AUTH_MODE in {"auth0", "oauth-local", "jwt"}
         ),
     }
 

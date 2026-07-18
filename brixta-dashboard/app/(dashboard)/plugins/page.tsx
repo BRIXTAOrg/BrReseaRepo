@@ -1,12 +1,12 @@
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchPythonApi } from "@/lib/api";
+import { fetchPythonApiServer } from "@/lib/server-api";
 import type { PluginSpec, PluginsResponse } from "@/types/types";
 
 const stages = ["downloader", "parser", "chunker", "embedding", "storage"] as const;
 
 export default async function PluginsPage() {
-  const data = await fetchPythonApi("/plugins", { cache: "no-store" }) as PluginsResponse & { error?: string };
+  const data = await fetchPythonApiServer("/plugins") as unknown as PluginsResponse & { error?: string };
   const plugins = data.plugins || [];
   return (
     <div className="mx-auto max-w-7xl space-y-6 p-6">

@@ -14,8 +14,9 @@ from api.sources import router as sources_router
 from runtime.settings import RuntimeSettingsRepository
 from runtime.jobs.repository import JobRepository
 from api.simulations import router as simulations_router
-from api.auth import ApiAuthMiddleware, CurrentPrincipal
+from api.auth import AdminPrincipal, ApiAuthMiddleware, CurrentPrincipal, WritePrincipal
 from core.config import BRIXTA_CORS_ORIGINS
+from runtime.auth import IdentityAccessRepository
 
 
 class IngestionRequest(BaseModel):
@@ -23,6 +24,13 @@ class IngestionRequest(BaseModel):
     tenant_id: str | None = Field(default=None, min_length=1)
     plugins: dict[str, str] = Field(default_factory=dict)
     config: dict = Field(default_factory=dict)
+
+
+class MembershipGrantRequest(BaseModel):
+    subject: str = Field(min_length=1, max_length=255)
+    tenant_id: str = Field(min_length=1, max_length=120)
+    role: str = Field(pattern="^(viewer|member|operator|admin|owner)$")
+    make_default: bool = False
 
 
 app = FastAPI(
@@ -68,13 +76,42 @@ async def auth_me(principal: CurrentPrincipal):
         "roles": sorted(principal.roles),
         "is_admin": principal.is_admin,
         "authenticated": principal.authenticated,
+        "memberships": (
+            IdentityAccessRepository.memberships(principal.subject)
+            if principal.authenticated and principal.tenant_ids
+            else []
+        ),
     }
+
+
+@app.get("/auth/memberships/{subject}")
+async def auth_memberships(subject: str, admin: AdminPrincipal):
+    return {"subject": subject, "memberships": IdentityAccessRepository.memberships(subject)}
+
+
+@app.post("/auth/memberships", status_code=status.HTTP_204_NO_CONTENT)
+async def grant_auth_membership(payload: MembershipGrantRequest, admin: AdminPrincipal):
+    IdentityAccessRepository.grant(
+        subject=payload.subject,
+        tenant_id=payload.tenant_id,
+        role=payload.role,
+        make_default=payload.make_default,
+    )
+
+
+@app.delete(
+    "/auth/memberships/{subject}/{tenant_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def revoke_auth_membership(subject: str, tenant_id: str, admin: AdminPrincipal):
+    if not IdentityAccessRepository.revoke(subject=subject, tenant_id=tenant_id):
+        raise HTTPException(status_code=404, detail="Membership not found.")
 
 
 @app.post("/ingest", status_code=status.HTTP_202_ACCEPTED)
 async def ingest(
     request: IngestionRequest,
-    principal: CurrentPrincipal,
+    principal: WritePrincipal,
 ):
 
     # ----------------------------------------------------
@@ -83,7 +120,7 @@ async def ingest(
 
     context = PipelineContext(
         job_id=str(uuid.uuid4()),
-        tenant_id=principal.tenant_for(request.tenant_id),
+        tenant_id=principal.tenant_for(request.tenant_id, write=True),
         source_type="url",
         source_target=str(request.source_url),
         plugins={**RuntimeSettingsRepository.get().get("default_plugins", {}), **request.plugins},
@@ -137,7 +174,7 @@ async def ingest(
 
 @app.post("/ingest/file", status_code=status.HTTP_202_ACCEPTED)
 async def ingest_file(
-    principal: CurrentPrincipal,
+    principal: WritePrincipal,
     file: UploadFile = File(...),
     tenant_id: str = Form(...),
     parser: str = Form("docling"),
@@ -146,7 +183,7 @@ async def ingest_file(
     storage: str = Form("pgvector"),
     embedding_model: str = Form("nomic-ai/nomic-embed-text-v1.5"),
 ):
-    tenant_id = principal.tenant_for(tenant_id)
+    tenant_id = principal.tenant_for(tenant_id, write=True)
     suffix = Path(file.filename or "upload").suffix.lower()
     engineering_text = {
         ".csv", ".json", ".yaml", ".yml", ".xml", ".inp", ".dat",

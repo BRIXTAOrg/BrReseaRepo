@@ -6,7 +6,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException, Response, status
 
-from api.auth import CurrentPrincipal
+from api.auth import CurrentPrincipal, WritePrincipal
 from brixta_sdk.simulations import SimulationPreflightRequest, SimulationRunRequest
 from runtime.artifacts.repository import ArtifactRepository
 from runtime.celery_app import celery
@@ -36,10 +36,10 @@ def simulation_preflight(payload: SimulationPreflightRequest, principal: Current
 
 
 @router.post("/runs", status_code=status.HTTP_202_ACCEPTED)
-def create_run(payload: SimulationRunRequest, principal: CurrentPrincipal):
+def create_run(payload: SimulationRunRequest, principal: WritePrincipal):
     try:
         scoped = payload.model_copy(
-            update={"tenant_id": principal.tenant_for(payload.tenant_id)}
+            update={"tenant_id": principal.tenant_for(payload.tenant_id, write=True)}
         )
         run = create_simulation_run(scoped)
     except (SimulationError, ValueError) as exc:
@@ -79,8 +79,8 @@ def get_run(run_id: str, principal: CurrentPrincipal, tenant_id: str | None = No
 
 
 @router.post("/runs/{run_id}/cancel")
-def cancel_run(run_id: str, principal: CurrentPrincipal, tenant_id: str | None = None):
-    scoped_tenant = principal.tenant_for(tenant_id)
+def cancel_run(run_id: str, principal: WritePrincipal, tenant_id: str | None = None):
+    scoped_tenant = principal.tenant_for(tenant_id, write=True)
     run = SimulationRunRepository.get(run_id, tenant_id=scoped_tenant)
     if run is None:
         raise HTTPException(status_code=404, detail="Simulation run not found.")

@@ -1,7 +1,7 @@
 // app/(dashboard)/docker/[name]/page.tsx
 
 import React from "react";
-import { fetchPythonApi } from "@/lib/api";
+import { fetchPythonApiServer } from "@/lib/server-api";
 import { RestartButton } from "./RestartButton";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -18,8 +18,8 @@ export default async function ContainerDetailsPage({
 
   // Fetch specific container info and logs in parallel
   const [containerData, logsData] = await Promise.all([
-    fetchPythonApi(`/prod/docker/container/${name}`, { cache: "no-store" }),
-    fetchPythonApi(`/prod/docker/logs/${name}?tail=200`, { cache: "no-store" }),
+    fetchPythonApiServer(`/prod/docker/container/${name}`),
+    fetchPythonApiServer(`/prod/docker/logs/${name}?tail=200`),
   ]);
   const container = containerData as { id?: string; name?: string; image?: string; status?: string; error?: string };
   const logs = logsData as { logs?: string; error?: string };

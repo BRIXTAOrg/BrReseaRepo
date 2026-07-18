@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import {
   LayoutDashboard,
@@ -18,7 +19,20 @@ import {
   FlaskConical,
 } from "lucide-react";
 
-const sections = [
+type NavigationItem = {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  adminOnly?: boolean;
+};
+
+type NavigationSection = {
+  title: string;
+  adminOnly?: boolean;
+  items: NavigationItem[];
+};
+
+const sections: NavigationSection[] = [
   {
     title: "Workspace",
     items: [
@@ -56,11 +70,13 @@ const sections = [
         name: "Settings",
         href: "/settings",
         icon: Settings,
+        adminOnly: true,
       },
     ],
   },
   {
     title: "Infrastructure",
+    adminOnly: true,
     items: [
       {
         name: "Docker",
@@ -98,6 +114,14 @@ const sections = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/session", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((session) => setIsAdmin(Boolean(session.authorization?.is_admin)))
+      .catch(() => setIsAdmin(false));
+  }, []);
 
   return (
     <aside className="flex h-screen w-72 flex-col border-r bg-background">
@@ -116,7 +140,7 @@ export default function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto p-4">
 
-        {sections.map((section) => (
+        {sections.filter((section) => !section.adminOnly || isAdmin).map((section) => (
           <div
             key={section.title}
             className="mb-8"
@@ -128,7 +152,7 @@ export default function Sidebar() {
 
             <div className="space-y-1">
 
-              {section.items.map((item) => {
+              {section.items.filter((item) => !item.adminOnly || isAdmin).map((item) => {
 
                 const Icon = item.icon;
 

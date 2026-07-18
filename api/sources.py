@@ -5,7 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field, HttpUrl
 
-from api.auth import CurrentPrincipal
+from api.auth import CurrentPrincipal, WritePrincipal
 from core.exceptions import ValidationError
 from core.plugin_loader import registry
 from runtime.sources import SourceRepository
@@ -47,24 +47,24 @@ def list_sources(principal: CurrentPrincipal, tenant_id: str | None = None):
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
-def create_source(request: SourceCreate, principal: CurrentPrincipal):
+def create_source(request: SourceCreate, principal: WritePrincipal):
     try:
         configured = RuntimeSettingsRepository.get().get("default_plugins", {})
         plugins = registry.validate_selection({**configured, **request.plugins})
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     payload = request.model_dump(mode="json")
-    payload["tenant_id"] = principal.tenant_for(request.tenant_id)
+    payload["tenant_id"] = principal.tenant_for(request.tenant_id, write=True)
     payload["plugins"] = plugins
     return SourceRepository.create(payload)
 
 
 @router.patch("/{source_id}")
-def update_source(source_id: str, request: SourceUpdate, principal: CurrentPrincipal):
+def update_source(source_id: str, request: SourceUpdate, principal: WritePrincipal):
     existing = SourceRepository.get(source_id)
     if existing is None:
         raise HTTPException(status_code=404, detail="Source not found.")
-    principal.tenant_for(existing["tenant_id"])
+    principal.tenant_for(existing["tenant_id"], write=True)
     source = SourceRepository.update(source_id, request.model_dump(exclude_none=True))
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found.")
@@ -72,21 +72,21 @@ def update_source(source_id: str, request: SourceUpdate, principal: CurrentPrinc
 
 
 @router.delete("/{source_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_source(source_id: str, principal: CurrentPrincipal):
+def delete_source(source_id: str, principal: WritePrincipal):
     source = SourceRepository.get(source_id)
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found.")
-    principal.tenant_for(source["tenant_id"])
+    principal.tenant_for(source["tenant_id"], write=True)
     if not SourceRepository.delete(source_id):
         raise HTTPException(status_code=404, detail="Source not found.")
 
 
 @router.post("/{source_id}/sync", status_code=status.HTTP_202_ACCEPTED)
-def sync_source(source_id: str, principal: CurrentPrincipal):
+def sync_source(source_id: str, principal: WritePrincipal):
     source = SourceRepository.get(source_id)
     if source is None:
         raise HTTPException(status_code=404, detail="Source not found.")
-    principal.tenant_for(source["tenant_id"])
+    principal.tenant_for(source["tenant_id"], write=True)
     if not source["enabled"]:
         raise HTTPException(status_code=409, detail="Source is disabled.")
     try:

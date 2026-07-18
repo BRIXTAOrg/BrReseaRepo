@@ -22,6 +22,7 @@ READ_ONLY_ANNOTATIONS = {
 
 class SimulationRunSummary(BaseModel):
     id: str
+    tenant_id: str
     label: str | None = None
     case_card_id: str
     solver: str
@@ -51,16 +52,20 @@ def register_simulation_tools(mcp: FastMCP) -> None:
         annotations=READ_ONLY_ANNOTATIONS,
         meta=READ_SECURITY,
     )
-    def brixta_list_simulation_runs(limit: int = 50) -> SimulationRunListOutput:
-        """List structural/material simulation runs for the authenticated tenant."""
+    def brixta_list_simulation_runs(
+        limit: int = 50,
+        tenant_id: str | None = None,
+    ) -> SimulationRunListOutput:
+        """List simulation runs across authorized tenants, or one tenant."""
         access = current_access_context()
         access.require(READ_SCOPE)
-        runs = SimulationRunRepository.list(
-            tenant_id=access.tenant_id,
-            limit=min(max(limit, 1), 200),
-        )
+        capped = min(max(limit, 1), 200)
+        runs = []
+        for selected in access.accessible_tenants(tenant_id):
+            runs.extend(SimulationRunRepository.list(tenant_id=selected, limit=capped))
+        runs.sort(key=lambda item: item.get("created_at") or "", reverse=True)
         return SimulationRunListOutput(
-            runs=[SimulationRunSummary(**run) for run in runs]
+            runs=[SimulationRunSummary(**run) for run in runs[:capped]]
         )
 
     @mcp.tool(
@@ -68,11 +73,15 @@ def register_simulation_tools(mcp: FastMCP) -> None:
         annotations=READ_ONLY_ANNOTATIONS,
         meta=READ_SECURITY,
     )
-    def brixta_get_simulation_report(run_id: str) -> SimulationReportOutput:
+    def brixta_get_simulation_report(
+        run_id: str,
+        tenant_id: str | None = None,
+    ) -> SimulationReportOutput:
         """Fetch one completed or failed simulation record with evidence and artifacts."""
         access = current_access_context()
         access.require(READ_SCOPE)
-        run = SimulationRunRepository.get(run_id, tenant_id=access.tenant_id)
+        selected = access.tenant_for(tenant_id)
+        run = SimulationRunRepository.get(run_id, tenant_id=selected)
         if run is None:
             raise ValueError("Simulation run not found.")
         return SimulationReportOutput(**run)
