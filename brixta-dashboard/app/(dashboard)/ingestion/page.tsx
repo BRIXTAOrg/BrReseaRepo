@@ -4,12 +4,14 @@ import { DragEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import { Check, Circle, FileUp, Globe2, LoaderCircle } from "lucide-react";
 
 import KnowledgeConnectionCard from "@/components/knowledge/KnowledgeConnectionCard";
+import TenantPicker from "@/components/auth/TenantPicker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { usePlugins } from "@/hooks/usePlugins";
+import { useWorkspaceSession } from "@/hooks/useWorkspaceSession";
 import { requestPythonApi } from "@/lib/api";
 import type { IngestionResponse, Job, KnowledgeBase, PluginStage } from "@/types/types";
 
@@ -17,11 +19,12 @@ const stages: PluginStage[] = ["downloader", "parser", "chunker", "embedding", "
 
 export default function IngestionPage() {
   const { byStage, loading: pluginsLoading, error: pluginError } = usePlugins();
+  const workspace = useWorkspaceSession();
   const [sourceUrl, setSourceUrl] = useState("");
   const [mode, setMode] = useState<"url" | "file">("url");
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [tenantId, setTenantId] = useState("default");
+  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [embeddingModel, setEmbeddingModel] = useState("nomic-ai/nomic-embed-text-v1.5");
   const [selection, setSelection] = useState<Partial<Record<PluginStage, string>>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +32,7 @@ export default function IngestionPage() {
   const [job, setJob] = useState<Job | null>(null);
   const [knowledgeBase, setKnowledgeBase] = useState<KnowledgeBase | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tenantId = selectedTenantId || workspace.tenantId;
 
   const defaults = useMemo(() => {
     const value: Partial<Record<PluginStage, string>> = {};
@@ -142,14 +146,15 @@ export default function IngestionPage() {
                 </div>
               )}
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2"><Label htmlFor="tenant">Tenant ID</Label><Input id="tenant" value={tenantId} onChange={(event) => setTenantId(event.target.value)} required /></div>
+                <TenantPicker id="tenant" value={tenantId} memberships={workspace.memberships} loading={workspace.loading} onChange={setSelectedTenantId} />
                 <div className="space-y-2"><Label htmlFor="embedding-model">Embedding model</Label><select id="embedding-model" className="h-9 w-full rounded-xl border bg-background px-3 text-sm" value={selectedModel} onChange={(event) => setEmbeddingModel(event.target.value)}>{embeddingModels.map((model) => <option key={model.id} value={model.id}>{model.id} · {model.dimensions}d</option>)}{embeddingModels.length === 0 && <option value={selectedModel}>{selectedModel}</option>}</select></div>
               </div>
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {stages.map((stage) => <div key={stage} className="space-y-2"><Label htmlFor={stage} className="capitalize">{stage}</Label><select id={stage} className="h-9 w-full rounded-xl border bg-background px-3 text-sm" value={selection[stage] || defaults[stage] || ""} onChange={(event) => setSelection((current) => ({ ...current, [stage]: event.target.value }))} disabled={pluginsLoading}>{byStage[stage].map((plugin) => <option key={plugin.id} value={plugin.id}>{plugin.name}</option>)}</select></div>)}
               </div>
               {pluginError && <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">Could not reach BRIXTA Core: {pluginError}</div>}
-              <Button type="submit" disabled={submitting || pluginsLoading || Boolean(pluginError)}>{submitting ? <><LoaderCircle className="animate-spin" size={15} /> Queuing…</> : "Start ingestion"}</Button>
+              {workspace.error && <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">Could not resolve your authenticated workspace: {workspace.error}</div>}
+              <Button type="submit" disabled={submitting || pluginsLoading || workspace.loading || !tenantId || Boolean(pluginError) || Boolean(workspace.error)}>{submitting ? <><LoaderCircle className="animate-spin" size={15} /> Queuing…</> : "Start ingestion"}</Button>
             </form>
           </CardContent>
         </Card>

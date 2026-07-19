@@ -17,11 +17,11 @@ export default async function DashboardLayout({
 }) {
   if (auth0Enabled && auth0) {
     if (!(await auth0.getSession())) {
-      redirect("/auth/login?returnTo=/dashboard");
+      redirect("/login");
     }
     const authorization = await fetchPythonApiServer("/auth/me");
     if (authorization.status === 401) {
-      redirect("/auth/login?returnTo=/dashboard");
+      redirect("/login");
     }
     if (authorization.status === 403) {
       redirect("/access-denied");

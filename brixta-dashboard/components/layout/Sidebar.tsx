@@ -70,7 +70,6 @@ const sections: NavigationSection[] = [
         name: "Settings",
         href: "/settings",
         icon: Settings,
-        adminOnly: true,
       },
     ],
   },

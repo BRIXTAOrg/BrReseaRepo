@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { LockKeyhole, ShieldCheck } from "lucide-react";
+import { ArrowRight, LockKeyhole, ShieldCheck, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { auth0, auth0Enabled, dashboardAuthMode } from "@/lib/auth0";
@@ -10,10 +9,15 @@ import { auth0, auth0Enabled, dashboardAuthMode } from "@/lib/auth0";
 // production image.
 export const dynamic = "force-dynamic";
 
-export default async function LoginPage() {
+type LoginPageProps = {
+  searchParams?: Promise<{ error?: string }>;
+};
+
+export default async function LoginPage({ searchParams }: LoginPageProps) {
   if (auth0Enabled && auth0 && (await auth0.getSession())) {
     redirect("/dashboard");
   }
+  const { error } = (await searchParams) ?? {};
   const protectedDashboard = dashboardAuthMode !== "none";
   return (
     <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,hsl(var(--primary)/0.14),transparent_42%)] p-6">
@@ -32,12 +36,42 @@ export default async function LoginPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Button
-            render={<Link href={auth0Enabled ? "/auth/login?returnTo=/dashboard" : "/dashboard"} />}
-            className="w-full"
-          >
-            {auth0Enabled ? "Continue securely" : "Enter local dashboard"}
-          </Button>
+          {error ? (
+            <div role="alert" className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+              Sign-in could not be completed. Check the Auth0 application callback, audience, scopes, and enabled database connection, then try again.
+            </div>
+          ) : null}
+
+          {auth0Enabled ? (
+            <div className="grid gap-3">
+              <Button
+                nativeButton={false}
+                render={<a href="/auth/login?returnTo=/dashboard" />}
+                className="w-full"
+              >
+                Sign in <ArrowRight data-icon="inline-end" />
+              </Button>
+              <Button
+                nativeButton={false}
+                render={<a href="/auth/login?screen_hint=signup&returnTo=/dashboard" />}
+                variant="outline"
+                className="w-full"
+              >
+                <Sparkles data-icon="inline-start" /> Create a BRIXTA workspace
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                First sign-in creates your private BRIXTA workspace automatically.
+              </p>
+            </div>
+          ) : (
+            <Button
+              nativeButton={false}
+              render={<a href="/dashboard" />}
+              className="w-full"
+            >
+              Enter local dashboard
+            </Button>
+          )}
           <div className="flex items-start gap-2 rounded-xl border bg-muted/40 p-3 text-xs text-muted-foreground">
             <ShieldCheck className="mt-0.5 size-4 shrink-0" />
             Tenant membership and roles are enforced by BRIXTA PostgreSQL after identity verification.

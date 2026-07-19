@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { HardDrive, Puzzle, ShieldCheck } from "lucide-react";
+import { Building2, HardDrive, Puzzle, ShieldCheck, UserRound } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requestPythonApi } from "@/lib/api";
+import { useWorkspaceSession } from "@/hooks/useWorkspaceSession";
 import type { PluginSpec, PluginStage, PluginsResponse } from "@/types/types";
 
 interface Settings {
@@ -24,12 +25,14 @@ interface Settings {
 const canonical: PluginStage[] = ["downloader", "parser", "chunker", "embedding", "storage"];
 
 export default function SettingsPage() {
+  const workspace = useWorkspaceSession();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [plugins, setPlugins] = useState<PluginSpec[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (workspace.loading || !workspace.isAdmin) return;
     Promise.all([
       requestPythonApi<{ settings: Settings }>("/prod/settings/control-plane"),
       requestPythonApi<PluginsResponse>("/plugins"),
@@ -37,7 +40,7 @@ export default function SettingsPage() {
       setSettings(configuration.settings);
       setPlugins(catalog.plugins);
     }).catch((reason: Error) => setMessage(reason.message));
-  }, []);
+  }, [workspace.isAdmin, workspace.loading]);
 
   async function save(event: FormEvent) {
     event.preventDefault();
@@ -49,6 +52,37 @@ export default function SettingsPage() {
     } catch (reason) {
       setMessage(reason instanceof Error ? reason.message : "Could not save settings.");
     } finally { setSaving(false); }
+  }
+
+  if (workspace.loading) return <div className="p-8"><h1 className="text-3xl font-bold">Settings</h1><p className="mt-3 text-muted-foreground">Loading your account and workspace…</p></div>;
+
+  if (!workspace.isAdmin) {
+    const membership = workspace.memberships.find((item) => item.tenant_id === workspace.tenantId) || workspace.memberships[0];
+    return (
+      <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-8">
+        <div><h1 className="text-3xl font-bold">Account & workspace</h1><p className="text-muted-foreground">Your authenticated BRIXTA identity and tenant access.</p></div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><UserRound size={18} /> Account</CardTitle><CardDescription>Authentication is provided by Auth0; BRIXTA stores workspace authorization in PostgreSQL.</CardDescription></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p><span className="text-muted-foreground">Name:</span> {workspace.session?.user?.name || "BRIXTA user"}</p>
+              <p><span className="text-muted-foreground">Email:</span> {workspace.session?.user?.email || workspace.authorization?.email || "Not provided"}</p>
+              <p className="break-all"><span className="text-muted-foreground">Subject:</span> {workspace.authorization?.subject || "Local development"}</p>
+              {workspace.session?.authMode === "auth0" ? <Button className="mt-3" variant="outline" render={<Link href="/auth/logout" />}>Sign out</Button> : null}
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><Building2 size={18} /> Workspace</CardTitle><CardDescription>Every write is restricted to one of your authenticated memberships.</CardDescription></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <p><span className="text-muted-foreground">Name:</span> {membership?.name || workspace.tenantId}</p>
+              <p className="break-all"><span className="text-muted-foreground">Tenant ID:</span> {workspace.tenantId}</p>
+              <p><span className="text-muted-foreground">Role:</span> {membership?.role || workspace.authorization?.roles.join(", ") || "member"}</p>
+              <p className="pt-3 text-xs text-muted-foreground">Runtime, MinIO and global plugin defaults are visible only to the BRIXTA platform administrator.</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   if (!settings) return <div className="p-8"><h1 className="text-3xl font-bold">Settings</h1><p className="mt-3 text-muted-foreground">{message || "Loading control-plane settings…"}</p></div>;

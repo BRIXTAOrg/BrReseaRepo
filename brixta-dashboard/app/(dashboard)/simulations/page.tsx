@@ -11,6 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requestPythonApi } from "@/lib/api";
+import { useWorkspaceSession } from "@/hooks/useWorkspaceSession";
+import TenantPicker from "@/components/auth/TenantPicker";
 import type { KnowledgeBase, SimulationCaseCard, SimulationPreflight, SimulationRun } from "@/types/types";
 
 function defaultsFor(card: SimulationCaseCard | undefined): Record<string, number> {
@@ -22,7 +24,8 @@ function defaultsFor(card: SimulationCaseCard | undefined): Record<string, numbe
 }
 
 export default function SimulationsPage() {
-  const [tenantId, setTenantId] = useState("default");
+  const workspace = useWorkspaceSession();
+  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [label, setLabel] = useState("Engineering screening run");
   const [caseCardId, setCaseCardId] = useState("");
   const [executionMode, setExecutionMode] = useState<"preview" | "solver">("preview");
@@ -34,6 +37,7 @@ export default function SimulationsPage() {
   const [preflight, setPreflight] = useState<SimulationPreflight | null>(null);
   const [busy, setBusy] = useState<"preflight" | "run" | null>(null);
   const [error, setError] = useState("");
+  const tenantId = selectedTenantId || workspace.tenantId;
 
   const card = cards.find((item) => item.id === caseCardId) || cards[0];
   const properties = Object.entries(card?.parameter_schema.properties || {});
@@ -55,6 +59,7 @@ export default function SimulationsPage() {
   }), [tenantId, card?.id, card?.analysis_type, parameters, selectedKnowledge]);
 
   const refresh = useCallback(async () => {
+    if (!tenantId) return;
     const [runData, knowledgeData] = await Promise.all([
       requestPythonApi<{ runs: SimulationRun[] }>(`/prod/simulations/runs?tenant_id=${encodeURIComponent(tenantId)}`),
       requestPythonApi<{ knowledge_bases: KnowledgeBase[] }>(`/prod/knowledge?tenant_id=${encodeURIComponent(tenantId)}`),
@@ -134,13 +139,13 @@ export default function SimulationsPage() {
                 <div className="space-y-2"><Label htmlFor="execution-mode">Execution mode</Label><select id="execution-mode" className="h-10 w-full rounded-xl border bg-background px-3 text-sm" value={executionMode} onChange={(event) => setExecutionMode(event.target.value as "preview" | "solver")}><option value="preview">Preview + export</option><option value="solver">Run isolated solver</option></select></div>
               </div>
               {card ? <div className="rounded-2xl border bg-muted/30 p-4 text-sm"><p className="font-medium">{card.name}</p><p className="mt-1 text-muted-foreground">{card.description}</p><p className="mt-2 text-xs text-muted-foreground">{card.analysis_type} · {card.solver} · {card.version}</p></div> : null}
-              <div className="grid gap-4 md:grid-cols-2"><div className="space-y-2"><Label htmlFor="sim-tenant">Tenant</Label><Input id="sim-tenant" value={tenantId} onChange={(event) => { setTenantId(event.target.value); setSelectedKnowledge([]); }} required /></div><div className="space-y-2"><Label htmlFor="sim-label">Run label</Label><Input id="sim-label" value={label} onChange={(event) => setLabel(event.target.value)} /></div></div>
+              <div className="grid gap-4 md:grid-cols-2"><TenantPicker id="sim-tenant" value={tenantId} memberships={workspace.memberships} loading={workspace.loading} onChange={(value) => { setSelectedTenantId(value); setSelectedKnowledge([]); }} /><div className="space-y-2"><Label htmlFor="sim-label">Run label</Label><Input id="sim-label" value={label} onChange={(event) => setLabel(event.target.value)} /></div></div>
               {groups.map(([group, fields]) => <fieldset key={group} className="space-y-3 rounded-2xl border p-4"><legend className="px-2 text-sm font-semibold">{group}</legend><div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">{fields.map(([name, property]) => {
                 const unit = property.unit || property.json_schema_extra?.unit;
                 return <div key={name} className="space-y-2"><Label htmlFor={name}>{property.title || name.replaceAll("_", " ")}{unit ? ` · ${unit}` : ""}</Label><Input id={name} type="number" step="any" min={property.minimum} max={property.maximum} value={parameters[name] ?? ""} onChange={(event) => setNumber(name, event.target.value)} required /><p className="line-clamp-2 text-[11px] text-muted-foreground">{property.description}</p></div>;
               })}</div></fieldset>)}
               <div className="space-y-2"><Label>Optional engineering evidence</Label><div className="max-h-44 space-y-2 overflow-y-auto rounded-2xl border p-3">{knowledge.map((item) => <label key={item.id} className="flex items-start gap-3 text-sm"><input className="mt-1" type="checkbox" checked={selectedKnowledge.includes(item.id)} onChange={(event) => setSelectedKnowledge((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /><span><span className="font-medium">{item.name}</span><span className="block text-xs text-muted-foreground">{item.chunk_count} chunks · {item.embedding_model}</span></span></label>)}{knowledge.length === 0 && <p className="text-sm text-muted-foreground">No completed knowledge bases for tenant “{tenantId}”. Explicit Case Card values can still be validated.</p>}</div></div>
-              <div className="flex flex-wrap gap-3"><Button type="submit" variant="outline" disabled={busy !== null || !card}>{busy === "preflight" ? <LoaderCircle className="animate-spin" size={15} /> : <ShieldCheck size={15} />} Validate & compile</Button><Button type="button" disabled={!preflight || busy !== null} onClick={run}>{busy === "run" ? <LoaderCircle className="animate-spin" size={15} /> : <Play size={15} />} {executionMode === "preview" ? "Save preview" : `Queue ${card?.solver || "solver"}`}</Button></div>
+              <div className="flex flex-wrap gap-3"><Button type="submit" variant="outline" disabled={busy !== null || !card || workspace.loading || !tenantId}>{busy === "preflight" ? <LoaderCircle className="animate-spin" size={15} /> : <ShieldCheck size={15} />} Validate & compile</Button><Button type="button" disabled={!preflight || busy !== null || !tenantId} onClick={run}>{busy === "run" ? <LoaderCircle className="animate-spin" size={15} /> : <Play size={15} />} {executionMode === "preview" ? "Save preview" : `Queue ${card?.solver || "solver"}`}</Button></div>
             </form>
           </CardContent>
         </Card>

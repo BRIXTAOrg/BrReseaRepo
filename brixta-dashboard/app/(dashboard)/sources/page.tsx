@@ -8,22 +8,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requestPythonApi } from "@/lib/api";
 import { usePlugins } from "@/hooks/usePlugins";
+import { useWorkspaceSession } from "@/hooks/useWorkspaceSession";
+import TenantPicker from "@/components/auth/TenantPicker";
 import type { PluginStage, SourceDefinition, SourcesResponse } from "@/types/types";
 
 const stages: PluginStage[] = ["downloader", "parser", "chunker", "embedding", "storage"];
 
 export default function SourcesPage() {
   const { byStage } = usePlugins();
+  const workspace = useWorkspaceSession();
   const [sources, setSources] = useState<SourceDefinition[]>([]);
   const [name, setName] = useState("");
   const [startUrl, setStartUrl] = useState("");
-  const [tenantId, setTenantId] = useState("default");
+  const [selectedTenantId, setSelectedTenantId] = useState("");
   const [schedule, setSchedule] = useState("0 */6 * * *");
   const [timezone, setTimezone] = useState("Asia/Kolkata");
   const [scheduled, setScheduled] = useState(true);
   const [selection, setSelection] = useState<Partial<Record<PluginStage, string>>>({});
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const tenantId = selectedTenantId || workspace.tenantId;
 
   const refresh = useCallback(async () => {
     try {
@@ -113,7 +117,7 @@ export default function SourcesPage() {
             <form onSubmit={create} className="space-y-4">
               <div className="space-y-2"><Label htmlFor="source-name">Name</Label><Input id="source-name" value={name} onChange={(event) => setName(event.target.value)} placeholder="Product documentation" required /></div>
               <div className="space-y-2"><Label htmlFor="start-url">Start URL</Label><Input id="start-url" type="url" value={startUrl} onChange={(event) => setStartUrl(event.target.value)} placeholder="https://docs.example.com" required /></div>
-              <div className="space-y-2"><Label htmlFor="source-tenant">Tenant</Label><Input id="source-tenant" value={tenantId} onChange={(event) => setTenantId(event.target.value)} required /></div>
+              <TenantPicker id="source-tenant" value={tenantId} memberships={workspace.memberships} loading={workspace.loading} onChange={setSelectedTenantId} />
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2"><Label htmlFor="cron">Cron expression</Label><Input id="cron" value={schedule} onChange={(event) => setSchedule(event.target.value)} disabled={!scheduled} /></div>
                 <div className="space-y-2"><Label htmlFor="timezone">Timezone</Label><Input id="timezone" value={timezone} onChange={(event) => setTimezone(event.target.value)} disabled={!scheduled} /></div>
@@ -132,7 +136,7 @@ export default function SourcesPage() {
                 </div>
               </details>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={scheduled} onChange={(event) => setScheduled(event.target.checked)} /> Enable recurring sync</label>
-              <Button type="submit" disabled={busy === "create" || !(selection.storage || defaults.storage)}>{busy === "create" ? "Saving…" : "Save source"}</Button>
+              <Button type="submit" disabled={busy === "create" || workspace.loading || !tenantId || !(selection.storage || defaults.storage)}>{busy === "create" ? "Saving…" : "Save source"}</Button>
             </form>
           </CardContent>
         </Card>
